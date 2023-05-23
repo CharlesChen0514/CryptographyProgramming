@@ -1,17 +1,23 @@
 package org.bitkernel;
 
 import com.sun.istack.internal.NotNull;
+import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 
+import java.math.BigInteger;
+import java.security.SecureRandom;
 import java.util.Random;
 
 @Slf4j
 public class User {
+    @Getter
     private final String name;
     private final Enigma enigma;
     private String key;
     private Message d1Message;
     private Message d2Message;
+    @Getter
+    private final BigInteger r;
 
     public User(@NotNull String name) {
         logger.debug("{} online", name);
@@ -24,6 +30,9 @@ public class User {
         enigma.setPos(idx1, idx2, idx3);
         logger.debug(String.format("The initial position of user %s's enigma is set to [%d, %d, %d]",
                 name, idx1, idx2, idx3));
+        byte[] rBytes = new byte[16];
+        new SecureRandom().nextBytes(rBytes);
+        r = new BigInteger(rBytes);
     }
 
     public void generateEncryption(@NotNull String key) {
@@ -35,11 +44,23 @@ public class User {
         logger.debug("d2 string is {}", d2Message.getStr());
     }
 
-    public byte[] getD1Bytes() {
-        return d1Message.getStr().getBytes();
+    @NotNull
+    public BigInteger addD1WithR(@NotNull BigInteger start) {
+        BigInteger add = start.add(getDWithR(d1Message));
+        logger.debug(String.format("%s accept X(%s), return X(%s)", name, start, add));
+        return add;
     }
 
-    public byte[] getD2Bytes() {
-        return d2Message.getStr().getBytes();
+    @NotNull
+    public BigInteger addD2WithR(@NotNull BigInteger start) {
+        BigInteger add = start.add(getDWithR(d2Message));
+        logger.debug(String.format("%s accept X(%s), return X(%s)", name, start, add));
+        return add;
+    }
+
+    @NotNull
+    public BigInteger getDWithR(@NotNull Message dString) {
+        BigInteger d = new BigInteger(dString.getStr().getBytes());
+        return r.add(d);
     }
 }
