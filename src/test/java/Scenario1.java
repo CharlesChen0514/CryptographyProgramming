@@ -2,6 +2,7 @@ import com.sun.istack.internal.NotNull;
 import javafx.util.Pair;
 import lombok.extern.slf4j.Slf4j;
 import org.bitkernel.MPCMain;
+import org.bitkernel.StorageGateway;
 import org.bitkernel.User;
 
 import java.math.BigInteger;
@@ -13,6 +14,7 @@ public class Scenario1 {
     private static final User bob = new User("bob");
     private static final User[] group = {alice, bob};
     private static final MPCMain mpcMain = new MPCMain();
+    private static final StorageGateway storageGateway = new StorageGateway();
 
     public static void main(String[] args) {
         logger.debug("-----------------------Step 1: get encrypted number-----------------------");
@@ -38,6 +40,10 @@ public class Scenario1 {
         logger.debug("The public key is {}", new BigInteger(keyPair.getKey()));
         logger.debug("The private key is {}", new BigInteger(keyPair.getValue()));
         logger.debug("-----------------------Step 3: generate RSA keys done-----------------------");
+
+        logger.debug("-----------------------Step 4: reliable storage-----------------------------");
+        storageGateway.store(group, groupTag, keyPair.getKey(), keyPair.getValue());
+        logger.debug("-----------------------Step 4: reliable storage done------------------------");
     }
 
     @NotNull
