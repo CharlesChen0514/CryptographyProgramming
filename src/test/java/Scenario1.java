@@ -1,4 +1,5 @@
 import com.sun.istack.internal.NotNull;
+import javafx.util.Pair;
 import lombok.extern.slf4j.Slf4j;
 import org.bitkernel.MPCMain;
 import org.bitkernel.User;
@@ -8,23 +9,35 @@ import java.util.List;
 
 @Slf4j
 public class Scenario1 {
+    private static final User alice = new User("alice");
+    private static final User bob = new User("bob");
+    private static final User[] group = {alice, bob};
+    private static final MPCMain mpcMain = new MPCMain();
+
     public static void main(String[] args) {
-        User alice = new User("alice");
+        logger.debug("-----------------------Step 1: get encrypted number-----------------------");
         alice.generateEncryption("abcdefgh");
-
-        User bob = new User("bob");
         bob.generateEncryption("ijklmnop");
+        logger.debug("-----------------------Step 1: get encrypted number done-------------------");
 
-        MPCMain main = new MPCMain();
-        User[] group = {alice, bob};
-        List<Integer> path = main.generatePath(group.length);
+        logger.debug("-----------------------Step 2: get base D----------------------------------");
+        List<Integer> path = mpcMain.generatePath(group.length);
         printPath(path, group);
         BigInteger sumD1WithSalt = getSumD1WithSalt(path, group);
         BigInteger sumD2WithSalt = getSumD2WithSalt(path, group);
-        BigInteger sumD1 = main.getSumD(sumD1WithSalt, alice.getR(), bob.getR());
-        BigInteger sumD2 = main.getSumD(sumD2WithSalt, alice.getR(), bob.getR());
+        BigInteger sumD1 = mpcMain.getSumD(sumD1WithSalt, alice.getR(), bob.getR());
+        BigInteger sumD2 = mpcMain.getSumD(sumD2WithSalt, alice.getR(), bob.getR());
         logger.debug("Sum D1 is {}", sumD1);
         logger.debug("Sum D2 is {}", sumD2);
+        logger.debug("-----------------------Step 2: get base D done------------------------------");
+
+        logger.debug("-----------------------Step 3: generate RSA keys----------------------------");
+        String groupTag = mpcMain.generateGroupTag(group);
+        logger.debug("The group tag is {}", groupTag);
+        Pair<byte[], byte[]> keyPair = mpcMain.generateRSAKeyPair(sumD1, sumD2);
+        logger.debug("The public key is {}", new BigInteger(keyPair.getKey()));
+        logger.debug("The private key is {}", new BigInteger(keyPair.getValue()));
+        logger.debug("-----------------------Step 3: generate RSA keys done-----------------------");
     }
 
     @NotNull
@@ -57,7 +70,7 @@ public class Scenario1 {
             User user = group[idx];
             x2 = user.addD2WithR(x2);
         }
-        logger.debug("The aggregated value of all users d1 and R is {}", x2);
+        logger.debug("The aggregated value of all users d2 and R is {}", x2);
         return x2;
     }
 }
