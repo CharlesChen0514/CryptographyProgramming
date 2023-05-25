@@ -38,8 +38,8 @@ public class Scenario1 {
         String groupTag = mpcMain.generateGroupTag(group);
         logger.debug("The group tag is {}", groupTag);
         RSAKeyPair keyPair = mpcMain.generateRSAKeyPair(sumD1, sumD2);
-        logger.debug("The public key is {}", keyPair.getPubKeyEncodedBase64());
-        logger.debug("The private key is {}", keyPair.getPriKeyEncodedBase64());
+        logger.debug("The public key is {}", keyPair.getPublicKey().getEncoded());
+        logger.debug("The private key is {}", keyPair.getPrivateKey().getEncoded());
         logger.debug("-----------------------Step 3: generate RSA keys done-----------------------");
 
         logger.debug("-----------------------Step 4: reliable storage-----------------------------");

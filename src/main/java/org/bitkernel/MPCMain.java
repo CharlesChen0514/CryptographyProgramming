@@ -59,16 +59,6 @@ public class MPCMain {
         return base;
     }
 
-    private byte[] removeLeadingZero(byte[] bytes) {
-        if (bytes[0] != 0) {
-            return bytes;
-        } else {
-            byte[] result = new byte[bytes.length - 1];
-            System.arraycopy(bytes, 1, result, 0, result.length);
-            return result;
-        }
-    }
-
     @NotNull
     public static BigInteger dataPadding(@NotNull BigInteger data) {
         byte[] input = data.toByteArray();

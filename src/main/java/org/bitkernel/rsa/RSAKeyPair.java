@@ -3,7 +3,6 @@ package org.bitkernel.rsa;
 import com.sun.istack.internal.NotNull;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
-import sun.misc.BASE64Encoder;
 
 import java.math.BigInteger;
 import java.security.*;
@@ -42,22 +41,6 @@ public class RSAKeyPair {
         }
     }
 
-    @NotNull
-    public String getPriKeyEncodedBase64() {
-        // 获取密钥编码后的格式
-        byte[] encBytes = privateKey.getEncoded();
-        // 转换为 Base64 文本
-        return new BASE64Encoder().encode(encBytes);
-    }
-
-    @NotNull
-    public String getPubKeyEncodedBase64() {
-        // 获取密钥编码后的格式
-        byte[] encBytes = publicKey.getEncoded();
-        // 转换为 Base64 文本
-        return new BASE64Encoder().encode(encBytes);
-    }
-
     // 生成一个指定位数的素数
     private static BigInteger generateRandomPrime(int bits) {
         BigInteger p = BigInteger.probablePrime(bits, new SecureRandom());
@@ -76,13 +59,13 @@ public class RSAKeyPair {
         System.out.println("Public Key: " + rsAKeyPair.getPublicKey());
         System.out.println("Private Key: " + rsAKeyPair.getPrivateKey());
 
-        String pubKeyEncodedBase64 = rsAKeyPair.getPubKeyEncodedBase64();
+        String pubKeyEncodedBase64 = RSAUtil.getKeyEncodedBase64(rsAKeyPair.getPublicKey());
         PublicKey publicKey = RSAUtil.getPublicKey(pubKeyEncodedBase64);
         if (publicKey.toString().equals(rsAKeyPair.getPublicKey().toString())) {
             System.out.println("The recover public key is equal");
         }
 
-        String priKeyEncodedBase64 = rsAKeyPair.getPriKeyEncodedBase64();
+        String priKeyEncodedBase64 = RSAUtil.getKeyEncodedBase64(rsAKeyPair.getPrivateKey());;
         PrivateKey priKey = RSAUtil.getPrivateKey(priKeyEncodedBase64);
         if (priKey.toString().equals(rsAKeyPair.getPrivateKey().toString())) {
             System.out.println("The recover private key is equal");

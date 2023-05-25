@@ -2,6 +2,7 @@ package org.bitkernel.rsa;
 
 import com.sun.istack.internal.NotNull;
 import sun.misc.BASE64Decoder;
+import sun.misc.BASE64Encoder;
 
 import javax.crypto.BadPaddingException;
 import javax.crypto.Cipher;
@@ -76,5 +77,13 @@ public class RSAUtil {
         } catch (InvalidKeySpecException | IOException e) {
             throw new RuntimeException(e);
         }
+    }
+
+    @NotNull
+    public static String getKeyEncodedBase64(@NotNull Key key) {
+        // 获取密钥编码后的格式
+        byte[] encBytes = key.getEncoded();
+        // 转换为 Base64 文本
+        return new BASE64Encoder().encode(encBytes);
     }
 }
