@@ -4,6 +4,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.bitkernel.MPCMain;
 import org.bitkernel.StorageGateway;
 import org.bitkernel.User;
+import org.bitkernel.rsa.RSAKeyPair;
 
 import java.math.BigInteger;
 import java.util.List;
@@ -36,13 +37,13 @@ public class Scenario1 {
         logger.debug("-----------------------Step 3: generate RSA keys----------------------------");
         String groupTag = mpcMain.generateGroupTag(group);
         logger.debug("The group tag is {}", groupTag);
-        Pair<byte[], byte[]> keyPair = mpcMain.generateRSAKeyPair(sumD1, sumD2);
-        logger.debug("The public key is {}", new BigInteger(keyPair.getKey()));
-        logger.debug("The private key is {}", new BigInteger(keyPair.getValue()));
+        RSAKeyPair keyPair = mpcMain.generateRSAKeyPair(sumD1, sumD2);
+        logger.debug("The public key is {}", keyPair.getPubKeyEncodedBase64());
+        logger.debug("The private key is {}", keyPair.getPriKeyEncodedBase64());
         logger.debug("-----------------------Step 3: generate RSA keys done-----------------------");
 
         logger.debug("-----------------------Step 4: reliable storage-----------------------------");
-        storageGateway.store(group, groupTag, keyPair.getKey(), keyPair.getValue());
+        storageGateway.store(group, groupTag, keyPair);
         logger.debug("-----------------------Step 4: reliable storage done------------------------");
     }
 

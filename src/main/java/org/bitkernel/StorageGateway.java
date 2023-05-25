@@ -5,8 +5,11 @@ import com.google.zxing.common.reedsolomon.ReedSolomonDecoder;
 import com.google.zxing.common.reedsolomon.ReedSolomonEncoder;
 import com.sun.istack.internal.NotNull;
 import lombok.Getter;
+import org.bitkernel.rsa.RSAKeyPair;
 
 import java.math.BigInteger;
+import java.security.PrivateKey;
+import java.security.PublicKey;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
@@ -17,9 +20,9 @@ public class StorageGateway {
     private final ReedSolomonEncoder encoder = new ReedSolomonEncoder(gf);
     private final ReedSolomonDecoder decoder = new ReedSolomonDecoder(gf);
     /** Group tag -> public key*/
-    private final Map<String, BigInteger> publicKeyMap = new LinkedHashMap<>();
+    private final Map<String, PublicKey> publicKeyMap = new LinkedHashMap<>();
     /** Group tag -> private key */
-    private final Map<String, BigInteger> privateKeyMap = new LinkedHashMap<>();
+    private final Map<String, PrivateKey> privateKeyMap = new LinkedHashMap<>();
     /** User name -> Group tag -> sub private key */
     private final Map<String, Map<String, BigInteger>> userSubPriKeyMap = new LinkedHashMap<>();
     private final Storage[] storages = new Storage[3];
@@ -32,14 +35,11 @@ public class StorageGateway {
 
     public void store(@NotNull User[] group,
                       @NotNull String groupTag,
-                      @NotNull byte[] publicKey,
-                      @NotNull byte[] privateKey) {
-        BigInteger publicKeyInteger = new BigInteger(publicKey);
-        BigInteger privateKeyInteger = new BigInteger(privateKey);
-        publicKeyMap.put(groupTag, publicKeyInteger);
-        privateKeyMap.put(groupTag, privateKeyInteger);
+                      @NotNull RSAKeyPair rsAKeyPair) {
+        publicKeyMap.put(groupTag, rsAKeyPair.getPublicKey());
+        privateKeyMap.put(groupTag, rsAKeyPair.getPrivateKey());
 
-        Map<User, byte[]> userSubPriKeyMap = privateKeySlicing(group, groupTag, privateKey);
+        Map<User, byte[]> userSubPriKeyMap = getPriKeySlicingScheme(group, groupTag, rsAKeyPair.getPrivateKey());
 //        for (Map.Entry<User, byte[]> entry: userSubPriKeyMap.entrySet()) {
 //
 //        }
@@ -62,23 +62,23 @@ public class StorageGateway {
     }
 
     @NotNull
-    private Map<User, byte[]> privateKeySlicing(@NotNull User[] group,
-                                                @NotNull String groupTag,
-                                                @NotNull byte[] privateKey) {
-        int userNum = group.length;
-        int subPriKeyLen = (int) Math.ceil(privateKey.length * 1.0 / userNum);
+    private Map<User, byte[]> getPriKeySlicingScheme(@NotNull User[] group,
+                                                     @NotNull String groupTag,
+                                                     @NotNull PrivateKey priKey) {
+//        int userNum = group.length;
+//        int subPriKeyLen = (int) Math.ceil(privateKey.length * 1.0 / userNum);
         Map<User, byte[]> subPriKeyMap = new LinkedHashMap<>();
-        for (int i = 0; i < userNum; i++) {
-            User user = group[i];
-            byte[] subPriKey = new byte[subPriKeyLen];
-            int srcPos = i * subPriKeyLen;
-            int remainLen = privateKey.length - srcPos;
-            int copyLen = Math.min(remainLen, subPriKeyLen);
-            System.arraycopy(privateKey, srcPos, subPriKey, 0, copyLen);
-            userSubPriKeyMap.putIfAbsent(user.getName(), new LinkedHashMap<>());
-            userSubPriKeyMap.get(user.getName()).put(groupTag, new BigInteger(subPriKey));
-            subPriKeyMap.put(user, subPriKey);
-        }
+//        for (int i = 0; i < userNum; i++) {
+//            User user = group[i];
+//            byte[] subPriKey = new byte[subPriKeyLen];
+//            int srcPos = i * subPriKeyLen;
+//            int remainLen = privateKey.length - srcPos;
+//            int copyLen = Math.min(remainLen, subPriKeyLen);
+//            System.arraycopy(privateKey, srcPos, subPriKey, 0, copyLen);
+//            userSubPriKeyMap.putIfAbsent(user.getName(), new LinkedHashMap<>());
+//            userSubPriKeyMap.get(user.getName()).put(groupTag, new BigInteger(subPriKey));
+//            subPriKeyMap.put(user, subPriKey);
+//        }
         return subPriKeyMap;
     }
 }
