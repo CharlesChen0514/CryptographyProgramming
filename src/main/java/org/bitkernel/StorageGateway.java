@@ -1,8 +1,5 @@
 package org.bitkernel;
 
-import com.google.zxing.common.reedsolomon.GenericGF;
-import com.google.zxing.common.reedsolomon.ReedSolomonDecoder;
-import com.google.zxing.common.reedsolomon.ReedSolomonEncoder;
 import com.sun.istack.internal.NotNull;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
@@ -18,11 +15,6 @@ import java.util.*;
 
 @Slf4j
 public class StorageGateway {
-    private final static int REDUNDANCIES_SIZE = 2;
-    private final static int DATA_BLOCK_NUM_PER_KEY = 4;
-    private final GenericGF gf = GenericGF.AZTEC_DATA_8;
-    private final ReedSolomonEncoder encoder = new ReedSolomonEncoder(gf);
-    private final ReedSolomonDecoder decoder = new ReedSolomonDecoder(gf);
     /**
      * Group tag -> public key
      */
@@ -34,7 +26,7 @@ public class StorageGateway {
     /**
      * User name -> Group tag -> sub private key
      */
-    private final Map<String, Map<String, DataBlock>> userSubPriKeyMap = new LinkedHashMap<>();
+    private final Map<String, Map<String, byte[]>> userSubPriKeyMap = new LinkedHashMap<>();
     private final Storage[] storages = new Storage[3];
 
     public StorageGateway() {
@@ -48,19 +40,20 @@ public class StorageGateway {
                       @NotNull RSAKeyPair rsAKeyPair) {
         publicKeyMap.put(groupTag, rsAKeyPair.getPublicKey());
         privateKeyMap.put(groupTag, rsAKeyPair.getPrivateKey());
-        List<DataBlock> subPriKey = priKeySlicing(rsAKeyPair.getPrivateKey(), group.length);
+        List<byte[]> subPriKey = getPriKeySlicing(rsAKeyPair.getPrivateKey(), group.length);
         for (int i = 0; i < subPriKey.size(); i++) {
             String userName = group[i].getName();
             userSubPriKeyMap.putIfAbsent(userName, new LinkedHashMap<>());
             userSubPriKeyMap.get(userName).put(groupTag, subPriKey.get(i));
-            storeSubPriKey(userName, groupTag, subPriKey.get(i));
+            storeSubPriKey(i, userName, groupTag, subPriKey.get(i));
         }
     }
 
-    private void storeSubPriKey(@NotNull String userName,
+    private void storeSubPriKey(int keyId,
+                                @NotNull String userName,
                                 @NotNull String groupTag,
-                                @NotNull DataBlock subPriKey) {
-        List<DataBlock> dataBlocks = slice(subPriKey.getValidBytes(), 4);
+                                @NotNull byte[] subPriKey) {
+        List<DataBlock> dataBlocks = slice(keyId, subPriKey, 4);
         byte[] fullData = combine(dataBlocks, dataBlocks.size());
         int oneBlock = fullData.length / 4;
         byte[] fullDataWithCheckData = new byte[oneBlock * 6];
@@ -68,7 +61,7 @@ public class StorageGateway {
         int errorCorrectionSymbols = oneBlock * 2;
         Util.RSEncode(fullDataWithCheckData, errorCorrectionSymbols);
 
-        List<DataBlock> dataBlockWithCheckBlock = slice(fullData, 6);
+        List<DataBlock> dataBlockWithCheckBlock = convertToBlockList(fullData, 6);
         for (int i = 0; i < storages.length; i++) {
             storages[i].putPriKeyBlock(userName, groupTag, dataBlockWithCheckBlock.get(i * 2));
             storages[i].putPriKeyBlock(userName, groupTag, dataBlockWithCheckBlock.get(i * 2 + 1));
@@ -76,15 +69,28 @@ public class StorageGateway {
     }
 
     @NotNull
-    private List<DataBlock> priKeySlicing(@NotNull PrivateKey priKey,
+    private List<byte[]> getPriKeySlicing(@NotNull PrivateKey priKey,
                                           @NotNull int num) {
         String priKeyEncodedBase64 = RSAUtil.getKeyEncodedBase64(priKey);
         byte[] bytes = priKeyEncodedBase64.getBytes();
-        return slice(bytes, num);
+        int subLen = (int) Math.ceil(bytes.length * 1.0 / num);
+        List<byte[]> slices = new ArrayList<>();
+
+        int pos = 0;
+        while (pos < bytes.length) {
+            int remain = bytes.length - pos;
+            int len = Math.min(subLen, remain);
+            byte[] subBytes = new byte[len];
+            System.arraycopy(bytes, pos, subBytes, 0, subBytes.length);
+            pos += subBytes.length;
+            slices.add(subBytes);
+        }
+
+        return slices;
     }
 
     @NotNull
-    private List<DataBlock> slice(@NotNull byte[] bytes, int num) {
+    private List<DataBlock> slice(int keyId, @NotNull byte[] bytes, int num) {
         int addByteNum = num - bytes.length % num;
         byte[] byteFormatted = new byte[addByteNum + bytes.length];
         System.arraycopy(bytes, 0, byteFormatted, 0, bytes.length);
@@ -93,19 +99,20 @@ public class StorageGateway {
         List<DataBlock> dataBlocks = new ArrayList<>();
 
         int pos = 0;
-        int k = 0;
+        int blockId = 0;
         while (pos < bytes.length) {
             int remainByte = bytes.length - pos;
             int valByteNum = Math.min(subBlockSize, remainByte);
-            byte[] block = new byte[subBlockSize + 3];
-            block[0] = (byte) k;
-            block[1] = (byte) (valByteNum >> 8);
-            block[2] = (byte) valByteNum;
-            System.arraycopy(byteFormatted, pos, block, 3, valByteNum);
+            byte[] block = new byte[subBlockSize + 4];
+            block[0] = (byte) keyId;
+            block[1] = (byte) blockId;
+            block[2] = (byte) (valByteNum >> 8);
+            block[3] = (byte) valByteNum;
+            System.arraycopy(byteFormatted, pos, block, 4, valByteNum);
             DataBlock dataBlock = new DataBlock(block);
             dataBlocks.add(dataBlock);
             pos += valByteNum;
-            k++;
+            blockId++;
         }
 
         return dataBlocks;
@@ -127,10 +134,10 @@ public class StorageGateway {
     private byte[] combine(@NotNull List<DataBlock> dataBlocks, int num) {
         int totalLen = dataBlocks.get(0).getBytes().length;
         byte[] fullData = new byte[totalLen * num];
-        dataBlocks.sort(Comparator.comparing(DataBlock::getK));
+        dataBlocks.sort(Comparator.comparing(DataBlock::getBlockId));
         for (DataBlock dataBlock: dataBlocks) {
             System.arraycopy(dataBlock.getBytes(), 0,
-                    fullData, dataBlock.getK() * totalLen, totalLen);
+                    fullData, dataBlock.getBlockId() * totalLen, totalLen);
         }
         // 这里做数据恢复，保证后面的数据正确
         return fullData;
@@ -154,7 +161,7 @@ public class StorageGateway {
         byte[] bytes = new byte[100];
         new SecureRandom().nextBytes(bytes);
         StorageGateway gateway = new StorageGateway();
-        List<DataBlock> slices = gateway.slice(bytes, 3);
+        List<DataBlock> slices = gateway.slice(0, bytes, 3);
         byte[] combine = gateway.combine(slices, 3);
         List<DataBlock> dataBlocks = gateway.convertToBlockList(combine, 3);
         byte[] newBytes = gateway.parse(dataBlocks);
@@ -168,26 +175,30 @@ public class StorageGateway {
 
 @AllArgsConstructor
 class DataBlock {
-    /** | K(1) | valid length(2) | data(-) | */
+    /** | belongKeyId(1) | BlockId(1) | valid length(2) | data(-) | */
     @Getter
     private final byte[] bytes;
 
-    public int getK() {
+    public int getBelongKeyId() {
         return bytes[0];
+    }
+
+    public int getBlockId() {
+        return bytes[1];
     }
 
     public int getValByteNum() {
         ByteBuffer buf = ByteBuffer.allocate(2);
-        buf.put(bytes[1]);
         buf.put(bytes[2]);
+        buf.put(bytes[3]);
         buf.position(0);
         return buf.getShort();
     }
 
     @NotNull
     public byte[] getData() {
-        byte[] data = new byte[bytes.length - 3];
-        System.arraycopy(bytes, 3, data, 0, data.length);
+        byte[] data = new byte[bytes.length - 4];
+        System.arraycopy(bytes, 4, data, 0, data.length);
         return data;
     }
 
