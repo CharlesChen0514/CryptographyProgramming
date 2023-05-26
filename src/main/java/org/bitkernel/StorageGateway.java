@@ -6,6 +6,7 @@ import com.google.zxing.common.reedsolomon.ReedSolomonEncoder;
 import com.sun.istack.internal.NotNull;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
+import lombok.extern.slf4j.Slf4j;
 import org.bitkernel.rsa.RSAKeyPair;
 import org.bitkernel.rsa.RSAUtil;
 
@@ -14,6 +15,7 @@ import java.security.PublicKey;
 import java.security.SecureRandom;
 import java.util.*;
 
+@Slf4j
 public class StorageGateway {
     private final static int REDUNDANCIES_SIZE = 2;
     private final static int DATA_BLOCK_NUM_PER_KEY = 4;
@@ -58,7 +60,18 @@ public class StorageGateway {
                                 @NotNull String groupTag,
                                 @NotNull DataBlock subPriKey) {
         List<DataBlock> dataBlocks = slice(subPriKey.getValidDataBytes(), 4);
+        int[] fullData = combine(dataBlocks, dataBlocks.size());
+        int oneBlock = fullData.length / 4;
+        int[] fullDataWithCheckData = new int[oneBlock * 6];
+        System.arraycopy(fullData, 0, fullDataWithCheckData, 0, fullData.length);
+        int errorCorrectionSymbols = oneBlock * 2;
+        encoder.encode(fullDataWithCheckData, errorCorrectionSymbols);
 
+        List<DataBlock> dataBlockWithCheckBlock = slice(Util.intArrayToByteArray(fullData), 6);
+        for (int i = 0; i < storages.length; i++) {
+            storages[i].putPriKeyBlock(userName, groupTag, dataBlockWithCheckBlock.get(i * 2));
+            storages[i].putPriKeyBlock(userName, groupTag, dataBlockWithCheckBlock.get(i * 2 + 1));
+        }
     }
 
     @NotNull
@@ -71,26 +84,24 @@ public class StorageGateway {
 
     @NotNull
     private List<DataBlock> slice(@NotNull byte[] bytes, int num) {
-        int addByteNum = Integer.BYTES - bytes.length % Integer.BYTES;
+        int addByteNum = num - bytes.length % num;
         byte[] byteFormatted = new byte[addByteNum + bytes.length];
         System.arraycopy(bytes, 0, byteFormatted, 0, bytes.length);
-        int[] intArray = Util.byteArrayToIntArray(byteFormatted);
 
-        int subBlockSize = (int) Math.ceil(intArray.length * 1.0 / num);
+        int[] intArray = Util.byteArrayToIntArray(byteFormatted);
+        int subBlockSize = intArray.length / num;
         List<DataBlock> dataBlocks = new ArrayList<>();
 
         int pos = 0;
         int k = 0;
         while (pos < bytes.length) {
             int remainByte = bytes.length - pos;
-            int totalByteNum = subBlockSize * 4;
-            int valByteNum = Math.min(totalByteNum, remainByte);
+            int valByteNum = Math.min(subBlockSize, remainByte);
             int[] block = new int[subBlockSize + 3];
             block[0] = k;
             block[1] = valByteNum;
-            block[2] = totalByteNum;
-            int remainLen = intArray.length - pos / 4;
-            System.arraycopy(intArray, pos / 4, block, 3, Math.min(remainLen, subBlockSize));
+            block[2] = subBlockSize;
+            System.arraycopy(intArray, pos, block, 3, valByteNum);
             DataBlock dataBlock = new DataBlock(block);
             dataBlocks.add(dataBlock);
             pos += valByteNum;
@@ -121,7 +132,7 @@ public class StorageGateway {
         int pos = 0;
         while (pos < fullData.length) {
             validByteNum += fullData[pos + 1];
-            int totalLen = fullData[pos + 2] / 4;
+            int totalLen = fullData[pos + 2];
             c += totalLen;
             int[] data = new int[totalLen];
             System.arraycopy(fullData, pos + 3, data, 0, totalLen);
@@ -191,10 +202,37 @@ class DataBlock {
     }
 }
 
-
+@Slf4j
 class Storage {
     /** User name -> group tag -> data block */
-    private final Map<String, Map<String, DataBlock>> priKeyDataBlockMap = new LinkedHashMap<>();
+    private final Map<String, Map<String, List<DataBlock>>> priKeyDataBlockMap = new LinkedHashMap<>();
     /** Group tag -> data block */
     private final Map<String, DataBlock> pubKeyDataBlockMap = new LinkedHashMap<>();
+
+    public void putPriKeyBlock(@NotNull String userName,
+                               @NotNull String groupTag,
+                               @NotNull DataBlock dataBlock) {
+        priKeyDataBlockMap.putIfAbsent(userName, new LinkedHashMap<>());
+        priKeyDataBlockMap.get(userName).putIfAbsent(groupTag, new ArrayList<>());
+        priKeyDataBlockMap.get(userName).get(groupTag).add(dataBlock);
+    }
+
+    @NotNull
+    public List<DataBlock> getPriKeyDataBlocks(@NotNull String userName,
+                                               @NotNull String groupTag) {
+        if (!priKeyDataBlockMap.containsKey(userName)) {
+            logger.error("Username {} not found", userName);
+            return new ArrayList<>();
+        }
+        if (!priKeyDataBlockMap.get(userName).containsKey(groupTag)) {
+            logger.error("Group tag {} not found", groupTag);
+            return new ArrayList<>();
+        }
+        return priKeyDataBlockMap.get(userName).get(groupTag);
+    }
+
+    public void putPubKeyBlock(@NotNull String groupTag,
+                               @NotNull DataBlock dataBlock) {
+        pubKeyDataBlockMap.put(groupTag, dataBlock);
+    }
 }
