@@ -26,6 +26,7 @@ public class StorageGateway {
     /**
      * User name -> Group tag -> sub private key
      */
+    @Getter
     private final Map<String, Map<String, byte[]>> userSubPriKeyMap = new LinkedHashMap<>();
     private final Storage[] storages = new Storage[3];
 
@@ -53,18 +54,19 @@ public class StorageGateway {
                                 @NotNull String userName,
                                 @NotNull String groupTag,
                                 @NotNull byte[] subPriKey) {
-        List<DataBlock> dataBlocks = slice(keyId, subPriKey, 4);
-        byte[] fullData = combine(dataBlocks, dataBlocks.size());
-        int oneBlock = fullData.length / 4;
-        byte[] fullDataWithCheckData = new byte[oneBlock * 6];
-        System.arraycopy(fullData, 0, fullDataWithCheckData, 0, fullData.length);
-        int errorCorrectionSymbols = oneBlock * 2;
-        Util.RSEncode(fullDataWithCheckData, errorCorrectionSymbols);
+        int oneBlock = subPriKey.length / 4;
+        byte[] checkBytes = new byte[oneBlock * 2];
+        byte[] fullDataWithCheckData = new byte[subPriKey.length + checkBytes.length];
+        System.arraycopy(subPriKey, 0, fullDataWithCheckData, 0, subPriKey.length);
+        fullDataWithCheckData = Util.RSEncode(fullDataWithCheckData, checkBytes.length);
+        System.arraycopy(fullDataWithCheckData, subPriKey.length, checkBytes, 0, checkBytes.length);
 
-        List<DataBlock> dataBlockWithCheckBlock = convertToBlockList(fullData, 6);
+        List<DataBlock> dataBlocks = slice(keyId, subPriKey, 4);
+        dataBlocks.addAll(slice(keyId, 4, checkBytes, 2));
+
         for (int i = 0; i < storages.length; i++) {
-            storages[i].putPriKeyBlock(userName, groupTag, dataBlockWithCheckBlock.get(i * 2));
-            storages[i].putPriKeyBlock(userName, groupTag, dataBlockWithCheckBlock.get(i * 2 + 1));
+            storages[i].putPriKeyBlock(userName, groupTag, dataBlocks.get(i * 2));
+            storages[i].putPriKeyBlock(userName, groupTag, dataBlocks.get(i * 2 + 1));
         }
     }
 
@@ -79,8 +81,7 @@ public class StorageGateway {
         int pos = 0;
         while (pos < bytes.length) {
             int remain = bytes.length - pos;
-            int len = Math.min(subLen, remain);
-            byte[] subBytes = new byte[len];
+            byte[] subBytes = new byte[Math.min(subLen, remain)];
             System.arraycopy(bytes, pos, subBytes, 0, subBytes.length);
             pos += subBytes.length;
             slices.add(subBytes);
@@ -90,7 +91,29 @@ public class StorageGateway {
     }
 
     @NotNull
+    public byte[] getSubPriKey(@NotNull String userName,
+                               @NotNull String groupTag) {
+        List<DataBlock> subPriBlocks = new ArrayList<>();
+        for (Storage storage: this.storages) {
+            List<DataBlock> blocks = storage.getPriKeyDataBlocks(userName, groupTag);
+            subPriBlocks.addAll(blocks);
+        }
+        byte[] combine = combine(subPriBlocks, 6);
+        int errorCorrectionSymbols = subPriBlocks.get(0).getBytes().length * 2;
+        combine = Util.RSDecode(combine, errorCorrectionSymbols);
+        List<DataBlock> dataBlocks = convertToBlockList(combine, 6);
+        dataBlocks.remove(dataBlocks.size() - 1);
+        dataBlocks.remove(dataBlocks.size() - 1);
+        return parse(dataBlocks);
+    }
+
+    @NotNull
     private List<DataBlock> slice(int keyId, @NotNull byte[] bytes, int num) {
+        return slice(keyId, 0, bytes, num);
+    }
+
+    @NotNull
+    private List<DataBlock> slice(int keyId, int startBlockId, @NotNull byte[] bytes, int num) {
         int addByteNum = num - bytes.length % num;
         byte[] byteFormatted = new byte[addByteNum + bytes.length];
         System.arraycopy(bytes, 0, byteFormatted, 0, bytes.length);
@@ -99,7 +122,7 @@ public class StorageGateway {
         List<DataBlock> dataBlocks = new ArrayList<>();
 
         int pos = 0;
-        int blockId = 0;
+        int blockId = startBlockId;
         while (pos < bytes.length) {
             int remainByte = bytes.length - pos;
             int valByteNum = Math.min(subBlockSize, remainByte);

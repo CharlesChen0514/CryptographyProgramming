@@ -35,9 +35,11 @@ public class MPCMain {
     @NotNull
     public String generateGroupTag(@NotNull User[] users) {
         StringBuilder sb = new StringBuilder();
+        sb.append(users.length).append("@");
         for (User user: users) {
             sb.append(user.getName()).append("@");
         }
+        sb.deleteCharAt(sb.length() - 1);
         return sb.toString();
     }
 

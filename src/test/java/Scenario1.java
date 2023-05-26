@@ -44,6 +44,11 @@ public class Scenario1 {
 
         logger.debug("-----------------------Step 4: reliable storage-----------------------------");
         storageGateway.store(group, groupTag, keyPair);
+        byte[] subPriKey = storageGateway.getSubPriKey(alice.getName(), groupTag);
+        byte[] bytes = storageGateway.getUserSubPriKeyMap().get(alice.getName()).get(groupTag);
+        if (new String(subPriKey).equals(new String(bytes))) {
+            logger.debug("success");
+        }
         logger.debug("-----------------------Step 4: reliable storage done------------------------");
     }
 
