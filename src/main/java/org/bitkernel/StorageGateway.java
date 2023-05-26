@@ -103,12 +103,12 @@ public class StorageGateway {
         while (pos < bytes.length) {
             int remainByte = bytes.length - pos;
             int valByteNum = Math.min(subBlockSize, remainByte);
-            byte[] block = new byte[subBlockSize + 4];
+            byte[] block = new byte[subBlockSize + DataBlock.FLAG_BYTE_LEN];
             block[0] = (byte) keyId;
             block[1] = (byte) blockId;
             block[2] = (byte) (valByteNum >> 8);
             block[3] = (byte) valByteNum;
-            System.arraycopy(byteFormatted, pos, block, 4, valByteNum);
+            System.arraycopy(byteFormatted, pos, block, DataBlock.FLAG_BYTE_LEN, valByteNum);
             DataBlock dataBlock = new DataBlock(block);
             dataBlocks.add(dataBlock);
             pos += valByteNum;
@@ -175,6 +175,7 @@ public class StorageGateway {
 
 @AllArgsConstructor
 class DataBlock {
+    public static final int FLAG_BYTE_LEN = 4;
     /** | belongKeyId(1) | BlockId(1) | valid length(2) | data(-) | */
     @Getter
     private final byte[] bytes;
@@ -197,8 +198,8 @@ class DataBlock {
 
     @NotNull
     public byte[] getData() {
-        byte[] data = new byte[bytes.length - 4];
-        System.arraycopy(bytes, 4, data, 0, data.length);
+        byte[] data = new byte[bytes.length - FLAG_BYTE_LEN];
+        System.arraycopy(bytes, FLAG_BYTE_LEN, data, 0, data.length);
         return data;
     }
 
