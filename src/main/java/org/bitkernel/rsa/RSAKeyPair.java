@@ -12,14 +12,24 @@ import java.security.spec.RSAPublicKeySpec;
 
 @Slf4j
 public class RSAKeyPair {
-    private final BigInteger publicKeyExponent;
-    private final BigInteger privateKeyExponent;
-    private final BigInteger modulus;
+    private BigInteger publicKeyExponent;
+    private BigInteger privateKeyExponent;
+    private BigInteger modulus;
     @Getter
-    private final PublicKey publicKey;
+    private PublicKey publicKey;
     @Getter
-    private final PrivateKey privateKey;
+    private PrivateKey privateKey;
     public RSAKeyPair(@NotNull BigInteger p, @NotNull BigInteger q) {
+        generateKeyPair(p, q);
+    }
+
+    public RSAKeyPair() {
+        BigInteger p = generateRandomPrime(1024);
+        BigInteger q = generateRandomPrime(1024);
+        generateKeyPair(p, q);
+    }
+
+    private void generateKeyPair(@NotNull BigInteger p, @NotNull BigInteger q) {
         BigInteger one = BigInteger.ONE;
         modulus = p.multiply(q);
         BigInteger phi = p.subtract(one).multiply(q.subtract(one));

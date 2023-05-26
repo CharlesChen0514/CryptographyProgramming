@@ -1,12 +1,11 @@
 import com.sun.istack.internal.NotNull;
-import javafx.util.Pair;
 import lombok.extern.slf4j.Slf4j;
-import org.bitkernel.MPCMain;
-import org.bitkernel.StorageGateway;
-import org.bitkernel.User;
+import org.bitkernel.*;
 import org.bitkernel.rsa.RSAKeyPair;
+import org.bitkernel.rsa.RSAUtil;
 
 import java.math.BigInteger;
+import java.nio.charset.StandardCharsets;
 import java.security.PublicKey;
 import java.util.List;
 
@@ -17,6 +16,8 @@ public class Scenario1 {
     private static final User[] group = {alice, bob};
     private static final MPCMain mpcMain = new MPCMain();
     private static final StorageGateway storageGateway = new StorageGateway();
+    private static final SignServer signServer = new SignServer();
+    private static final BlockChainSystem blockChainSystem = new BlockChainSystem();
 
     public static void main(String[] args) {
         logger.debug("-----------------------Step 1: get encrypted number-----------------------");
@@ -45,16 +46,23 @@ public class Scenario1 {
 
         logger.debug("-----------------------Step 4: reliable storage-----------------------------");
         storageGateway.store(group, groupTag, keyPair);
-        byte[] subPriKey = storageGateway.getSubPriKey(alice.getName(), groupTag);
-        byte[] bytes = storageGateway.getUserSubPriKeyMap().get(alice.getName()).get(groupTag);
-        if (new String(subPriKey).equals(new String(bytes))) {
-            logger.debug("success");
-        }
-        PublicKey pubKey = storageGateway.getPubKey(groupTag);
-        if (pubKey.toString().equals(storageGateway.getPublicKeyMap().get(groupTag).toString())) {
-            logger.debug("public key success");
-        }
+//        byte[] subPriKey = storageGateway.getSubPriKey(alice.getName(), groupTag);
+//        byte[] bytes = storageGateway.getUserSubPriKeyMap().get(alice.getName()).get(groupTag);
+//        if (new String(subPriKey).equals(new String(bytes))) {
+//            logger.debug("success");
+//        }
+//        PublicKey pubKey = storageGateway.getPubKey(groupTag);
+//        if (pubKey.toString().equals(storageGateway.getPublicKeyMap().get(groupTag).toString())) {
+//            logger.debug("public key success");
+//        }
         logger.debug("-----------------------Step 4: reliable storage done------------------------");
+
+        logger.debug("-----------------------Step 5: co-signature---------------------------------");
+        PublicKey rsaPubKey = signServer.getRSAPubKey();
+        String signReqString = String.format("%s-%s-%s", alice.getName(), groupTag, "hello");
+        byte[] encrypt = RSAUtil.encrypt(signReqString.getBytes(StandardCharsets.UTF_8), rsaPubKey);
+        signServer.sign(encrypt);
+        logger.debug("-----------------------Step 5: co-signature done----------------------------");
     }
 
     @NotNull
