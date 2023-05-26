@@ -7,6 +7,7 @@ import org.bitkernel.User;
 import org.bitkernel.rsa.RSAKeyPair;
 
 import java.math.BigInteger;
+import java.security.PublicKey;
 import java.util.List;
 
 @Slf4j
@@ -48,6 +49,10 @@ public class Scenario1 {
         byte[] bytes = storageGateway.getUserSubPriKeyMap().get(alice.getName()).get(groupTag);
         if (new String(subPriKey).equals(new String(bytes))) {
             logger.debug("success");
+        }
+        PublicKey pubKey = storageGateway.getPubKey(groupTag);
+        if (pubKey.toString().equals(storageGateway.getPublicKeyMap().get(groupTag).toString())) {
+            logger.debug("public key success");
         }
         logger.debug("-----------------------Step 4: reliable storage done------------------------");
     }
