@@ -3,6 +3,8 @@ package org.bitkernel;
 import com.sun.istack.internal.NotNull;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
+import org.bitkernel.enigma.Enigma;
+import org.bitkernel.enigma.Message;
 
 import java.math.BigInteger;
 import java.security.SecureRandom;
@@ -14,7 +16,9 @@ public class User {
     private final String name;
     private final Enigma enigma;
     private String key;
+    @Getter
     private Message d1Message;
+    @Getter
     private Message d2Message;
     @Getter
     private final BigInteger r;
@@ -35,13 +39,12 @@ public class User {
         r = new BigInteger(rBytes);
     }
 
-    public void generateEncryption(@NotNull String key) {
-        logger.debug("{}'s key is {}", name, key);
+    public void generateEncryptedNumber(@NotNull String key) {
         this.key = key;
         d1Message = enigma.encode(key);
         d2Message = enigma.encode(key);
-        logger.debug("d1 string is {}", d1Message.getStr());
-        logger.debug("d2 string is {}", d2Message.getStr());
+        logger.info(String.format("%s's key is [%s], d1 string is [%s], d2 string is [%s]",
+                name, key, d1Message.getStr(), d2Message.getStr()));
     }
 
     @NotNull

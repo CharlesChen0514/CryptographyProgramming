@@ -21,8 +21,8 @@ public class Scenario1 {
 
     public static void main(String[] args) {
         logger.debug("-----------------------Step 1: get encrypted number-----------------------");
-        alice.generateEncryption("abcdefgh");
-        bob.generateEncryption("ijklmnop");
+        alice.generateEncryptedNumber("abcdefgh");
+        bob.generateEncryptedNumber("ijklmnop");
         logger.debug("-----------------------Step 1: get encrypted number done-------------------");
 
         logger.debug("-----------------------Step 2: get base D----------------------------------");

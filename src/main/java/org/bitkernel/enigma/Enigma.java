@@ -1,7 +1,6 @@
-package org.bitkernel;
+package org.bitkernel.enigma;
 
 import com.sun.istack.internal.NotNull;
-import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.Setter;
 
@@ -39,7 +38,7 @@ public class Enigma {
         StringBuilder sb = new StringBuilder();
         input = input.toLowerCase();
         int[] positions = {quickRotor.getPos(), midRotor.getPos(), slowRotor.getPos()};
-        for (char c: input.toCharArray()) {
+        for (char c : input.toCharArray()) {
             char encrypted = quickRotor.getChar(c);
             encrypted = midRotor.getChar(encrypted);
             encrypted = slowRotor.getChar(encrypted);
@@ -112,12 +111,4 @@ class Reflector {
     public char reflect(char c) {
         return reflected.charAt(alphabets.indexOf(c));
     }
-}
-
-@AllArgsConstructor
-class Message {
-    @Getter
-    private final int[] positions;
-    @Getter
-    private final String str;
 }
