@@ -16,19 +16,13 @@ import java.util.*;
 
 @Slf4j
 public class StorageGateway {
-    /**
-     * Group tag -> public key
-     */
+    /** Group tag -> public key, is only used as check */
     @Getter
     private final Map<String, PublicKey> publicKeyMap = new LinkedHashMap<>();
-    /**
-     * Group tag -> private key
-     */
+    /** Group tag -> private key, is only used as check */
     @Getter
     private final Map<String, PrivateKey> privateKeyMap = new LinkedHashMap<>();
-    /**
-     * Group tag -> user name -> sub private key
-     */
+    /** Group tag -> user name -> sub private key, is only used as check */
     @Getter
     private final Map<String, Map<String, byte[]>> userSubPriKeyMap = new LinkedHashMap<>();
     private final Storage[] storages = new Storage[3];
@@ -39,6 +33,9 @@ public class StorageGateway {
         }
     }
 
+    /**
+     * store the public key and private key
+     */
     public void store(@NotNull User[] group,
                       @NotNull String groupTag,
                       @NotNull RSAKeyPair rsAKeyPair) {
@@ -63,6 +60,7 @@ public class StorageGateway {
             storages[i].putPubKeyBlock(groupTag, dataBlocks.get(i * 2));
             storages[i].putPubKeyBlock(groupTag, dataBlocks.get(i * 2 + 1));
         }
+        logger.debug("Successfully store the public key");
     }
 
     private void storeSubPriKey(int keyId,
@@ -74,22 +72,34 @@ public class StorageGateway {
             storages[i].putPriKeyBlock(groupTag, userName, dataBlocks.get(i * 2));
             storages[i].putPriKeyBlock(groupTag, userName, dataBlocks.get(i * 2 + 1));
         }
+        logger.debug("\n[{}]'s sub-private key is {}", userName, new String(subPriKey));
     }
 
+    /**
+     * Generate six data block include four from sub-key and two from check data
+     * @param subKeyId serial number of sub-key
+     * @return a list include six data block
+     */
     @NotNull
-    private List<DataBlock> generateDataBlocks(int keyId, byte[] subPriKey) {
+    private List<DataBlock> generateDataBlocks(int subKeyId, @NotNull byte[] subPriKey) {
         int oneBlock = (int) Math.ceil(subPriKey.length * 1.0 / 4);
         byte[] checkBytes = new byte[oneBlock * 2];
         byte[] fullDataWithCheckData = new byte[subPriKey.length + checkBytes.length];
         System.arraycopy(subPriKey, 0, fullDataWithCheckData, 0, subPriKey.length);
-        fullDataWithCheckData = Util.RSEncode(fullDataWithCheckData, checkBytes.length);
+        fullDataWithCheckData = ReedSolomonUtil.encode(fullDataWithCheckData, checkBytes.length);
         System.arraycopy(fullDataWithCheckData, subPriKey.length, checkBytes, 0, checkBytes.length);
 
-        List<DataBlock> dataBlocks = slice(keyId, subPriKey, 4);
-        dataBlocks.addAll(slice(keyId, 4, checkBytes, 2));
+        List<DataBlock> dataBlocks = slice(subKeyId, subPriKey, 4);
+        dataBlocks.addAll(slice(subKeyId, 4, checkBytes, 2));
         return dataBlocks;
     }
 
+    /**
+     * Split private key into sub-private keys
+     * @param priKey private key
+     * @param num split number
+     * @return sub-private key list
+     */
     @NotNull
     private List<byte[]> getPriKeySlicing(@NotNull PrivateKey priKey,
                                           @NotNull int num) {
@@ -140,21 +150,28 @@ public class StorageGateway {
     @NotNull
     private byte[] recoverData(List<DataBlock> blocks) {
         byte[] dataBytesWithCheck = parse(blocks);
-        int errorCorrectionSymbols = blocks.get(0).getDataLen() * 2;
-        dataBytesWithCheck = Util.RSDecode(dataBytesWithCheck, errorCorrectionSymbols);
+        int errorCorrectionSymbols = blocks.get(0).getDataCapacity() * 2;
+        dataBytesWithCheck = ReedSolomonUtil.decode(dataBytesWithCheck, errorCorrectionSymbols);
         byte[] bytes = new byte[dataBytesWithCheck.length - errorCorrectionSymbols];
         System.arraycopy(dataBytesWithCheck, 0, bytes, 0, bytes.length);
         return bytes;
     }
 
+    /**
+     * Slice data into a list of data block
+     */
     @NotNull
-    private List<DataBlock> slice(int keyId, @NotNull byte[] bytes, int num) {
-        return slice(keyId, 0, bytes, num);
+    private List<DataBlock> slice(int id, @NotNull byte[] bytes, int num) {
+        return slice(id, 0, bytes, num);
     }
 
+    /**
+     * @param startBlockId the id of the starting data block
+     */
     @NotNull
     private List<DataBlock> slice(int keyId, int startBlockId,
                                   @NotNull byte[] bytes, int num) {
+        // standardized data so that it can be divided by {num}
         int addByteNum = bytes.length % num == 0 ? 0 : num - bytes.length % num;
         byte[] byteFormatted = new byte[addByteNum + bytes.length];
         System.arraycopy(bytes, 0, byteFormatted, 0, bytes.length);
@@ -168,6 +185,7 @@ public class StorageGateway {
             int remainByte = bytes.length - pos;
             int valByteNum = Math.min(subBlockSize, remainByte);
             byte[] block = new byte[subBlockSize + DataBlock.FLAG_BYTE_LEN];
+            // The first four bytes are fixed flag
             block[0] = (byte) keyId;
             block[1] = (byte) blockId;
             block[2] = (byte) (valByteNum >> 8);
@@ -238,7 +256,7 @@ public class StorageGateway {
 
 @AllArgsConstructor
 class DataBlock {
-    public static final int FLAG_BYTE_LEN = 4;
+    public static final int FLAG_BYTE_LEN = 1 + 1 + 2;
     /** | belongKeyId(1) | BlockId(1) | valid length(2) | data(-) | */
     @Getter
     private final byte[] bytes;
@@ -259,7 +277,7 @@ class DataBlock {
         return buf.getShort();
     }
 
-    public int getDataLen() {
+    public int getDataCapacity() {
         return bytes.length - FLAG_BYTE_LEN;
     }
 

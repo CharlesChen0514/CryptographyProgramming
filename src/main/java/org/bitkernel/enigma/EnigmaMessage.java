@@ -4,7 +4,7 @@ import lombok.AllArgsConstructor;
 import lombok.Getter;
 
 @AllArgsConstructor
-public class Message {
+public class EnigmaMessage {
     @Getter
     private final int[] positions;
     @Getter

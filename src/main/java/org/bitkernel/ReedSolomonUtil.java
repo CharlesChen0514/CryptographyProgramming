@@ -8,7 +8,7 @@ import com.sun.istack.internal.NotNull;
 import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
-public class Util {
+public class ReedSolomonUtil {
     public static int[] byteArrayToIntArray(@NotNull byte[] bs) {
         int[] res = new int[bs.length];
         for (int i = 0; i < res.length; i++) {
@@ -26,7 +26,7 @@ public class Util {
     }
 
     @NotNull
-    public static byte[] RSEncode(@NotNull byte[] toEncode, int ecBytes) {
+    public static byte[] encode(@NotNull byte[] toEncode, int ecBytes) {
         int[] intArray = byteArrayToIntArray(toEncode);
         ReedSolomonEncoder encoder = new ReedSolomonEncoder(GenericGF.AZTEC_DATA_8);
         encoder.encode(intArray, ecBytes);
@@ -34,7 +34,7 @@ public class Util {
     }
 
     @NotNull
-    public static byte[] RSDecode(@NotNull byte[] toDecode, int ecBytes) {
+    public static byte[] decode(@NotNull byte[] toDecode, int ecBytes) {
         int[] intArray = byteArrayToIntArray(toDecode);
         ReedSolomonDecoder decoder = new ReedSolomonDecoder(GenericGF.AZTEC_DATA_8);
         try {

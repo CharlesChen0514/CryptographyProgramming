@@ -34,7 +34,7 @@ public class Enigma {
     }
 
     @NotNull
-    public Message encode(@NotNull String input) {
+    public EnigmaMessage encode(@NotNull String input) {
         StringBuilder sb = new StringBuilder();
         input = input.toLowerCase();
         int[] positions = {quickRotor.getPos(), midRotor.getPos(), slowRotor.getPos()};
@@ -52,11 +52,11 @@ public class Enigma {
 
             rotate();
         }
-        return new Message(positions, sb.toString());
+        return new EnigmaMessage(positions, sb.toString());
     }
 
     @NotNull
-    public String decode(@NotNull Message message) {
+    public String decode(@NotNull EnigmaMessage message) {
         int[] positions = message.getPositions();
         quickRotor.setPos(positions[0]);
         midRotor.setPos(positions[1]);
@@ -69,8 +69,8 @@ public class Enigma {
         encryptedEnigma.setPos(2, 5, 7);
         String key = "abcdef";
 
-        Message d1Str = encryptedEnigma.encode(key);
-        Message d2Str = encryptedEnigma.encode(key);
+        EnigmaMessage d1Str = encryptedEnigma.encode(key);
+        EnigmaMessage d2Str = encryptedEnigma.encode(key);
         System.out.println(d1Str.getStr());
         System.out.println(d2Str.getStr());
 
