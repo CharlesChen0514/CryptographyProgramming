@@ -9,12 +9,15 @@ public class RSTest {
 
     public static void main(String[] args) {
         // 原始数据
-        int[] data = {1, 2, 3, 4};
+        int[] data = new int[215];
+        for (int i = 0; i < data.length; i++) {
+            data[i] = i + 1;
+        }
         // 纠错数据数量
-        int errorCorrectionSymbols = 2;
+        int errorCorrectionSymbols = 16;
 
         // 选择一个有限域（Galois Field）
-        GenericGF gf = GenericGF.AZTEC_DATA_8;
+        GenericGF gf = GenericGF.QR_CODE_FIELD_256;
 
         // 创建 Reed-Solomon 编码器
         ReedSolomonEncoder encoder = new ReedSolomonEncoder(gf);
@@ -28,8 +31,9 @@ public class RSTest {
         encoder.encode(encodedData, errorCorrectionSymbols);
 
         // 模拟数据损坏
-        // （例如，将第一个元素更改为 99）
-        encodedData[0] = 99;
+        for (int i = 0; i < errorCorrectionSymbols; i++) {
+            encodedData[i] = 0;
+        }
 
         try {
             // 尝试解码损坏的数据

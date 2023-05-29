@@ -14,6 +14,7 @@ import java.util.List;
 public class MPCMain {
     public static final int R_BYTE_NUM = 16;
     public static final int RSA_BYTE_NUM = 128;
+
     /**
      * generate the message transfer path randomly
      * @param users user group

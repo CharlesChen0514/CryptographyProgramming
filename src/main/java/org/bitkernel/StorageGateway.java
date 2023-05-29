@@ -4,6 +4,7 @@ import com.sun.istack.internal.NotNull;
 import javafx.util.Pair;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
+import lombok.Setter;
 import lombok.extern.slf4j.Slf4j;
 import org.bitkernel.rsa.RSAKeyPair;
 import org.bitkernel.rsa.RSAUtil;
@@ -37,6 +38,12 @@ public class StorageGateway {
         }
     }
 
+    public void randomDestroyProvider() {
+        int idx = new Random().nextInt(3);
+        storages[idx].setWork(false);
+        logger.debug("The {}th storage provider has been destroyed", idx);
+    }
+
     /**
      * store the public key and private key
      */
@@ -66,6 +73,10 @@ public class StorageGateway {
         pubKeyLenMap.put(groupTag, bytes.length);
         List<DataBlock> dataBlocks = generateDataBlocks(0, bytes);
         for (int i = 0; i < storages.length; i++) {
+            if (!storages[i].isWork()) {
+                logger.error("Current storage provider is not working, failed to store public key data blocks");
+                return;
+            }
             storages[i].putPubKeyBlock(groupTag, dataBlocks.get(i * 2));
             storages[i].putPubKeyBlock(groupTag, dataBlocks.get(i * 2 + 1));
         }
@@ -81,6 +92,10 @@ public class StorageGateway {
 
         List<DataBlock> dataBlocks = generateDataBlocks(keyId, subPriKey);
         for (int i = 0; i < storages.length; i++) {
+            if (!storages[i].isWork()) {
+                logger.error("Current storage provider is not working, failed to store the sub-private key data blocks");
+                return;
+            }
             storages[i].putPriKeyBlock(groupTag, userName, dataBlocks.get(i * 2));
             storages[i].putPriKeyBlock(groupTag, userName, dataBlocks.get(i * 2 + 1));
         }
@@ -136,6 +151,10 @@ public class StorageGateway {
     public PublicKey getPubKey(@NotNull String groupTag) {
         List<DataBlock> dataBlocks = new ArrayList<>();
         for (Storage storage: storages) {
+            if (!storage.isWork()) {
+                logger.error("Current storage provider is not working, failed to get public key blocks");
+                continue;
+            }
             dataBlocks.addAll(storage.getPubKeyBlock(groupTag));
         }
         byte[] bytes = recoverData(dataBlocks, pubKeyLenMap.get(groupTag));
@@ -147,6 +166,10 @@ public class StorageGateway {
                                               @NotNull String groupTag) {
         List<DataBlock> subPriBlocks = new ArrayList<>();
         for (Storage storage: this.storages) {
+            if (!storage.isWork()) {
+                logger.error("Current storage provider is not working, failed to get the sub-private key blocks");
+                continue;
+            }
             List<DataBlock> blocks = storage.getPriKeyDataBlocks(groupTag, userName);
             subPriBlocks.addAll(blocks);
         }
@@ -306,6 +329,9 @@ class Storage {
     private final Map<String, Map<String, List<DataBlock>>> priKeyDataBlockMap = new LinkedHashMap<>();
     /** Group tag -> data block */
     private final Map<String, List<DataBlock>> pubKeyDataBlockMap = new LinkedHashMap<>();
+    @Setter
+    @Getter
+    private boolean isWork = true;
 
     public void putPriKeyBlock(@NotNull String groupTag,
                                @NotNull String userName,

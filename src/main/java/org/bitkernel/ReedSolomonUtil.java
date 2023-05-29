@@ -40,7 +40,7 @@ public class ReedSolomonUtil {
         try {
             decoder.decode(intArray, ecBytes);
         } catch (ReedSolomonException e) {
-            logger.error("Reed solomon decode data error");
+            throw new RuntimeException(e);
         }
         return intArrayToByteArray(intArray);
     }

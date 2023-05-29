@@ -9,7 +9,7 @@ import java.security.PublicKey;
 import java.util.List;
 
 @Slf4j
-public class Scenario1 {
+public class RedundancyReliabilityTest {
     private static final User alice = new User("alice");
     private static final User bob = new User("bob");
     private static final User[] group = {alice, bob};
@@ -47,6 +47,7 @@ public class Scenario1 {
 
         System.out.println();
         logger.debug("-----------------------Step 5: co-signature---------------------------------");
+        storageGateway.randomDestroyProvider();
         PublicKey rsaPubKey = signServer.getRSAPubKey();
         String signReqString = String.format("%s-%s-%s", alice.getName(), groupTag, "hello");
         byte[] encrypt = RSAUtil.encrypt(signReqString.getBytes(), rsaPubKey);
