@@ -165,7 +165,7 @@ public class StorageGateway {
 
     @NotNull
     public PublicKey getPubKey(@NotNull String groupTag) {
-        DataBlock[] dataBlocks = new DataBlock[6];
+        DataBlock[] dataBlocks = new DataBlock[TOTAL_BLOCK_NUM];
         for (int i = 0; i < storages.length; i++) {
             Storage storage = storages[i];
             if (!storage.isWork()) {
@@ -183,7 +183,7 @@ public class StorageGateway {
     @NotNull
     public Pair<Integer, byte[]> getSubPriKey(@NotNull String userName,
                                               @NotNull String groupTag) {
-        DataBlock[] dataBlocks = new DataBlock[6];
+        DataBlock[] dataBlocks = new DataBlock[TOTAL_BLOCK_NUM];
         for (int i = 0; i < storages.length; i++) {
             Storage storage = storages[i];
             if (!storage.isWork()) {
@@ -203,7 +203,7 @@ public class StorageGateway {
      * Recover data through Reel Solomon, it can guarantee service
      * even when a storage provider is no longer online.
      *
-     * @param blocks a list of not less than four data blocks
+     * @param blocks an array of data blocks of length {@link #TOTAL_BLOCK_NUM}
      * @return origin data
      */
     @NotNull

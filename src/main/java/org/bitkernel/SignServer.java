@@ -123,6 +123,7 @@ class SignRequest {
         return md;
     }
 
+    @NotNull
     private PrivateKey constructPriKey() {
         subPriKeyList.sort(Comparator.comparing(Pair::getKey));
         int len = subPriKeyList.stream().map(p -> p.getValue().length)

@@ -9,16 +9,21 @@ import java.security.PublicKey;
 import java.util.List;
 
 @Slf4j
-public class Scenario12Test {
-    private static final User alice = new User("alice");
-    private static final User bob = new User("bob");
-    private static final User[] group = {alice, bob};
-    private static final MPCMain mpcMain = new MPCMain();
-    private static final StorageGateway storageGateway = new StorageGateway();
-    private static final SignServer signServer = new SignServer();
-    private static final BlockChainSystem blockChainSystem = new BlockChainSystem();
+public class Scenario1 {
+    protected static final User alice = new User("alice");
+    protected static final User bob = new User("bob");
+    protected static final User[] group = {alice, bob};
+    protected static String groupTag;
+    protected static final MPCMain mpcMain = new MPCMain();
+    protected static final StorageGateway storageGateway = new StorageGateway();
+    protected static final SignServer signServer = new SignServer();
+    protected static final BlockChainSystem blockChainSystem = new BlockChainSystem();
 
     public static void main(String[] args) throws InterruptedException {
+        runTest();
+    }
+
+    protected static void runTest() throws InterruptedException {
         System.out.println();
         logger.debug("-----------------------Step 1: get encrypted number-----------------------");
         alice.generateEncryptedNumber("abcdefgh");
@@ -36,7 +41,7 @@ public class Scenario12Test {
 
         System.out.println();
         logger.debug("-----------------------Step 3: generate RSA keys----------------------------");
-        String groupTag = mpcMain.generateGroupTag(group);
+        groupTag = mpcMain.generateGroupTag(group);
         RSAKeyPair keyPair = mpcMain.generateRSAKeyPair(sumD1, sumD2);
         logger.debug("\nThe public key is {}", RSAUtil.getKeyEncodedBase64(keyPair.getPublicKey()));
         logger.debug("\nThe private key is {}", RSAUtil.getKeyEncodedBase64(keyPair.getPrivateKey()));
@@ -44,21 +49,6 @@ public class Scenario12Test {
         System.out.println();
         logger.debug("-----------------------Step 4: reliable storage-----------------------------");
         storageGateway.store(group, groupTag, keyPair);
-
-        System.out.println();
-        logger.debug("-----------------------Step 5: co-signature---------------------------------");
-        PublicKey rsaPubKey = signServer.getRSAPubKey();
-        String signReqString = String.format("%s-%s-%s", alice.getName(), groupTag, "hello");
-        byte[] encrypt = RSAUtil.encrypt(signReqString.getBytes(), rsaPubKey);
-        signServer.newSignRequest(encrypt, storageGateway);
-
-        logger.debug("{} is offline", bob.getName());
-        Thread.sleep(2000);
-        logger.debug("{} is online", bob.getName());
-
-        String authorizedString = String.format("%s-%s", bob.getName(), groupTag);
-        encrypt = RSAUtil.encrypt(authorizedString.getBytes(), rsaPubKey);
-        signServer.authorized(encrypt, storageGateway, blockChainSystem);
     }
 
     @NotNull
