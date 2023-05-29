@@ -155,6 +155,13 @@ public class StorageGateway {
         return new Pair<>(belongKeyId, recoverData(subPriBlocks, len));
     }
 
+    /**
+     * Recover data through Reel Solomon, it can guarantee service
+     * even when a storage provider is no longer online.
+     * @param blocks a list of not less than four data blocks
+     * @param len total length of the origin data
+     * @return origin data
+     */
     @NotNull
     private byte[] recoverData(@NotNull List<DataBlock> blocks, int len) {
         blocks.sort(Comparator.comparing(DataBlock::getBlockId));
@@ -213,10 +220,12 @@ public class StorageGateway {
         return dataBlocks;
     }
 
+    /**
+     * parsing out origin data based on data blocks
+     * @param len length of origin data
+     */
     @NotNull
     private byte[] parse(@NotNull List<DataBlock> dataBlocks, int len) {
-        int validByteNum = dataBlocks.stream().map(DataBlock::getValByteNum)
-                .reduce(0, Integer::sum);
         byte[] validBytes = new byte[len + 2 * dataBlocks.get(0).getDataCapacity()];
         for (DataBlock dataBlock: dataBlocks) {
             byte[] dataBlockBytes = dataBlock.getValidBytes();

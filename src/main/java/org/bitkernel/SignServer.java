@@ -24,6 +24,7 @@ public class SignServer {
 
     public void newSignRequest(@NotNull byte[] encryptReq,
                                @NotNull StorageGateway storageGateway) {
+        logger.debug("Sign server accept a cipher text: {}", encryptReq);
         byte[] decrypt = RSAUtil.decrypt(encryptReq, rsaKeyPair.getPrivateKey());
         String signReqString = new String(decrypt);
         String[] split = signReqString.split("-");
@@ -31,17 +32,20 @@ public class SignServer {
         String userName = split[0].trim();
         String groupTag = split[1].trim();
         String msg = split[2].trim();
+        logger.debug("[{}] initiates a signature request with message [{}]", userName, msg);
 
         Pair<Integer, byte[]> subPriKey = storageGateway.getSubPriKey(userName, groupTag);
         PublicKey pubKey = storageGateway.getPubKey(groupTag);
-        int groupMemberNum = groupTag.split("@").length;
+        int groupMemberNum = Integer.parseInt(groupTag.substring(0, 1));
         SignRequest signRequest = new SignRequest(userName, groupTag, msg,
                 groupMemberNum, subPriKey, pubKey);
         signRequestMap.put(groupTag, signRequest);
     }
 
     public void authorized(@NotNull byte[] encryptReq,
-                           @NotNull StorageGateway storageGateway) {
+                           @NotNull StorageGateway storageGateway,
+                           @NotNull BlockChainSystem blockChainSystem) {
+        logger.debug("Sign server accept a cipher text: {}", encryptReq);
         byte[] decrypt = RSAUtil.decrypt(encryptReq, rsaKeyPair.getPrivateKey());
         String authorizedString = new String(decrypt);
         String[] split = authorizedString.split("-");
@@ -52,9 +56,11 @@ public class SignServer {
         Pair<Integer, byte[]> subPriKey = storageGateway.getSubPriKey(userName, groupTag);
         SignRequest signRequest = signRequestMap.get(groupTag);
         signRequest.addSubPriKey(userName, subPriKey);
+        logger.debug("[{}] authorized the signature request", userName);
 
         if (signRequest.isFullyAuthorized()) {
-            signRequest.sendLetter();
+            logger.debug("All users has authorized the sign request, send letter to blockchain");
+            signRequest.sendLetter(blockChainSystem);
         }
     }
 }
@@ -96,7 +102,7 @@ class SignRequest {
         subPriKeyList.add(subPriKey);
     }
 
-    public void sendLetter() {
+    public void sendLetter(@NotNull BlockChainSystem blockChainSystem) {
         MessageDigest md = getMessageDigestInstance();
         byte[] hash = md.digest(msg.getBytes());
 
@@ -104,6 +110,7 @@ class SignRequest {
         byte[] signature = RSAUtil.encrypt(hash, privateKey);
 
         Letter letter = new Letter(msg, signature, publicKey);
+        blockChainSystem.acceptLetter(letter);
     }
 
     public static MessageDigest getMessageDigestInstance() {

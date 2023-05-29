@@ -5,7 +5,6 @@ import org.bitkernel.rsa.RSAKeyPair;
 import org.bitkernel.rsa.RSAUtil;
 
 import java.math.BigInteger;
-import java.nio.charset.StandardCharsets;
 import java.security.PublicKey;
 import java.util.List;
 
@@ -19,7 +18,7 @@ public class Scenario1 {
     private static final SignServer signServer = new SignServer();
     private static final BlockChainSystem blockChainSystem = new BlockChainSystem();
 
-    public static void main(String[] args) {
+    public static void main(String[] args) throws InterruptedException {
         System.out.println();
         logger.debug("-----------------------Step 1: get encrypted number-----------------------");
         alice.generateEncryptedNumber("abcdefgh");
@@ -50,12 +49,16 @@ public class Scenario1 {
         logger.debug("-----------------------Step 5: co-signature---------------------------------");
         PublicKey rsaPubKey = signServer.getRSAPubKey();
         String signReqString = String.format("%s-%s-%s", alice.getName(), groupTag, "hello");
-        byte[] encrypt = RSAUtil.encrypt(signReqString.getBytes(StandardCharsets.UTF_8), rsaPubKey);
+        byte[] encrypt = RSAUtil.encrypt(signReqString.getBytes(), rsaPubKey);
         signServer.newSignRequest(encrypt, storageGateway);
 
+        logger.debug("{} is offline", bob.getName());
+        Thread.sleep(2000);
+        logger.debug("{} is online", bob.getName());
+
         String authorizedString = String.format("%s-%s", bob.getName(), groupTag);
-        encrypt = RSAUtil.encrypt(authorizedString.getBytes(StandardCharsets.UTF_8), rsaPubKey);
-        signServer.authorized(encrypt, storageGateway);
+        encrypt = RSAUtil.encrypt(authorizedString.getBytes(), rsaPubKey);
+        signServer.authorized(encrypt, storageGateway, blockChainSystem);
     }
 
     @NotNull
