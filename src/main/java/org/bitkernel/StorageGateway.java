@@ -29,10 +29,6 @@ public class StorageGateway {
     @Getter
     private final Map<String, Map<String, byte[]>> userSubPriKeyMap = new LinkedHashMap<>();
     private final Storage[] storages = new Storage[3];
-    /** Group tag -> user name -> sub-private key length */
-    private final Map<String, Map<String, Integer>> subPriKeyLenMap = new LinkedHashMap<>();
-    /** Group tag ->  public key length */
-    private final Map<String, Integer> pubKeyLenMap = new LinkedHashMap<>();
 
     public StorageGateway() {
         for (int i = 0; i < storages.length; i++) {
@@ -72,7 +68,6 @@ public class StorageGateway {
                             @NotNull PublicKey pubKey) {
         String pubKeyEncodedBase64 = RSAUtil.getKeyEncodedBase64(pubKey);
         byte[] bytes = pubKeyEncodedBase64.getBytes();
-        pubKeyLenMap.put(groupTag, bytes.length);
         List<DataBlock> dataBlocks = generateDataBlocks(0, bytes);
         for (int i = 0; i < storages.length; i++) {
             if (!storages[i].isWork()) {
@@ -89,9 +84,6 @@ public class StorageGateway {
                                 @NotNull String groupTag,
                                 @NotNull String userName,
                                 @NotNull byte[] subPriKey) {
-        subPriKeyLenMap.putIfAbsent(groupTag, new LinkedHashMap<>());
-        subPriKeyLenMap.get(groupTag).put(userName, subPriKey.length);
-
         List<DataBlock> dataBlocks = generateDataBlocks(keyId, subPriKey);
         for (int i = 0; i < storages.length; i++) {
             if (!storages[i].isWork()) {
@@ -181,7 +173,7 @@ public class StorageGateway {
             dataBlocks[i * 2] = blocks.get(0);
             dataBlocks[i * 2 + 1] = blocks.get(1);
         }
-        byte[] bytes = recoverData(dataBlocks, pubKeyLenMap.get(groupTag));
+        byte[] bytes = recoverData(dataBlocks);
         return RSAUtil.getPublicKey(new String(bytes));
     }
 
@@ -200,19 +192,18 @@ public class StorageGateway {
             dataBlocks[i * 2 + 1] = blocks.get(1);
         }
 //        int belongKeyId = subPriBlocks.get(0).getBelongKeyId();
-        int len = subPriKeyLenMap.get(groupTag).get(userName);
-        return new Pair<>(0, recoverData(dataBlocks, len));
+        return new Pair<>(0, recoverData(dataBlocks));
     }
 
     /**
      * Recover data through Reel Solomon, it can guarantee service
      * even when a storage provider is no longer online.
+     *
      * @param blocks a list of not less than four data blocks
-     * @param len total length of the origin data
      * @return origin data
      */
     @NotNull
-    private byte[] recoverData(@NotNull DataBlock[] blocks, int len) {
+    private byte[] recoverData(@NotNull DataBlock[] blocks) {
         int c = 0;
         for (DataBlock dataBlock : blocks) {
             if (dataBlock != null) {
@@ -241,7 +232,7 @@ public class StorageGateway {
         List<DataBlock> dataBlocks = convertToBlockList(dataBytesWithCheck, 6);
         dataBlocks.remove(dataBlocks.size() - 1);
         dataBlocks.remove(dataBlocks.size() - 1);
-        return parse(dataBlocks, len);
+        return parse(dataBlocks);
     }
 
     /**
@@ -293,10 +284,9 @@ public class StorageGateway {
 
     /**
      * parsing out origin data based on data blocks
-     * @param len length of origin data
      */
     @NotNull
-    private byte[] parse(@NotNull List<DataBlock> dataBlocks, int len) {
+    private byte[] parse(@NotNull List<DataBlock> dataBlocks) {
         int validNum = dataBlocks.stream().map(DataBlock::getValByteNum)
                 .reduce(0, Integer::sum);
         byte[] validBytes = new byte[validNum];
@@ -313,7 +303,7 @@ public class StorageGateway {
         new SecureRandom().nextBytes(bytes);
         StorageGateway gateway = new StorageGateway();
         List<DataBlock> slices = gateway.slice(0, bytes, 3);
-        byte[] newBytes = gateway.parse(slices, bytes.length);
+        byte[] newBytes = gateway.parse(slices);
         String str1 = new String(bytes);
         String str2 = new String(newBytes);
         if (str1.equals(str2)) {
