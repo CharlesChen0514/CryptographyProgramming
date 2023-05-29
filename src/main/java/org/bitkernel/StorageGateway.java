@@ -1,6 +1,7 @@
 package org.bitkernel;
 
 import com.sun.istack.internal.NotNull;
+import javafx.util.Pair;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
@@ -23,9 +24,10 @@ public class StorageGateway {
     /**
      * Group tag -> private key
      */
+    @Getter
     private final Map<String, PrivateKey> privateKeyMap = new LinkedHashMap<>();
     /**
-     * User name -> Group tag -> sub private key
+     * Group tag -> user name -> sub private key
      */
     @Getter
     private final Map<String, Map<String, byte[]>> userSubPriKeyMap = new LinkedHashMap<>();
@@ -45,9 +47,9 @@ public class StorageGateway {
         List<byte[]> subPriKey = getPriKeySlicing(rsAKeyPair.getPrivateKey(), group.length);
         for (int i = 0; i < subPriKey.size(); i++) {
             String userName = group[i].getName();
-            userSubPriKeyMap.putIfAbsent(userName, new LinkedHashMap<>());
-            userSubPriKeyMap.get(userName).put(groupTag, subPriKey.get(i));
-            storeSubPriKey(i, userName, groupTag, subPriKey.get(i));
+            userSubPriKeyMap.putIfAbsent(groupTag, new LinkedHashMap<>());
+            userSubPriKeyMap.get(groupTag).put(userName, subPriKey.get(i));
+            storeSubPriKey(i, groupTag, userName, subPriKey.get(i));
         }
         storePubKey(groupTag, rsAKeyPair.getPublicKey());
     }
@@ -64,13 +66,13 @@ public class StorageGateway {
     }
 
     private void storeSubPriKey(int keyId,
-                                @NotNull String userName,
                                 @NotNull String groupTag,
+                                @NotNull String userName,
                                 @NotNull byte[] subPriKey) {
         List<DataBlock> dataBlocks = generateDataBlocks(keyId, subPriKey);
         for (int i = 0; i < storages.length; i++) {
-            storages[i].putPriKeyBlock(userName, groupTag, dataBlocks.get(i * 2));
-            storages[i].putPriKeyBlock(userName, groupTag, dataBlocks.get(i * 2 + 1));
+            storages[i].putPriKeyBlock(groupTag, userName, dataBlocks.get(i * 2));
+            storages[i].putPriKeyBlock(groupTag, userName, dataBlocks.get(i * 2 + 1));
         }
     }
 
@@ -119,14 +121,20 @@ public class StorageGateway {
     }
 
     @NotNull
-    public byte[] getSubPriKey(@NotNull String userName,
-                               @NotNull String groupTag) {
+    public Pair<Integer, byte[]> getSubPriKey(@NotNull String userName,
+                                              @NotNull String groupTag) {
         List<DataBlock> subPriBlocks = new ArrayList<>();
         for (Storage storage: this.storages) {
-            List<DataBlock> blocks = storage.getPriKeyDataBlocks(userName, groupTag);
+            List<DataBlock> blocks = storage.getPriKeyDataBlocks(groupTag, userName);
             subPriBlocks.addAll(blocks);
         }
-        return recoverData(subPriBlocks);
+        int belongKeyId = subPriBlocks.get(0).getBelongKeyId();
+        return new Pair<>(belongKeyId, recoverData(subPriBlocks));
+    }
+
+    public int getGroupMemberNum(@NotNull String groupTag) {
+        return Arrays.stream(storages).map(s -> s.getSubPriKeyNum(groupTag))
+                .reduce(0, Integer::sum) / 3;
     }
 
     @NotNull
@@ -273,31 +281,36 @@ class DataBlock {
 
 @Slf4j
 class Storage {
-    /** User name -> group tag -> data block */
+    /** Group tag -> user name -> data block */
     private final Map<String, Map<String, List<DataBlock>>> priKeyDataBlockMap = new LinkedHashMap<>();
     /** Group tag -> data block */
     private final Map<String, List<DataBlock>> pubKeyDataBlockMap = new LinkedHashMap<>();
 
-    public void putPriKeyBlock(@NotNull String userName,
-                               @NotNull String groupTag,
+    public void putPriKeyBlock(@NotNull String groupTag,
+                               @NotNull String userName,
                                @NotNull DataBlock dataBlock) {
-        priKeyDataBlockMap.putIfAbsent(userName, new LinkedHashMap<>());
-        priKeyDataBlockMap.get(userName).putIfAbsent(groupTag, new ArrayList<>());
-        priKeyDataBlockMap.get(userName).get(groupTag).add(dataBlock);
+        priKeyDataBlockMap.putIfAbsent(groupTag, new LinkedHashMap<>());
+        priKeyDataBlockMap.get(groupTag).putIfAbsent(userName, new ArrayList<>());
+        priKeyDataBlockMap.get(groupTag).get(userName).add(dataBlock);
     }
 
     @NotNull
-    public List<DataBlock> getPriKeyDataBlocks(@NotNull String userName,
-                                               @NotNull String groupTag) {
-        if (!priKeyDataBlockMap.containsKey(userName)) {
-            logger.error("Username {} not found", userName);
-            return new ArrayList<>();
-        }
-        if (!priKeyDataBlockMap.get(userName).containsKey(groupTag)) {
+    public List<DataBlock> getPriKeyDataBlocks(@NotNull String groupTag,
+                                               @NotNull String userName) {
+        if (!priKeyDataBlockMap.containsKey(groupTag)) {
             logger.error("Group tag {} not found", groupTag);
             return new ArrayList<>();
         }
-        return priKeyDataBlockMap.get(userName).get(groupTag);
+        if (!priKeyDataBlockMap.get(groupTag).containsKey(userName)) {
+            logger.error("User name {} not found", userName);
+            return new ArrayList<>();
+        }
+        return priKeyDataBlockMap.get(groupTag).get(userName);
+    }
+
+    public int getSubPriKeyNum(@NotNull String groupTag) {
+        Map<String, List<DataBlock>> map = priKeyDataBlockMap.getOrDefault(groupTag, new LinkedHashMap<>());
+        return map.size();
     }
 
     public void putPubKeyBlock(@NotNull String groupTag,

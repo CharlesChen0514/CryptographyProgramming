@@ -61,7 +61,11 @@ public class Scenario1 {
         PublicKey rsaPubKey = signServer.getRSAPubKey();
         String signReqString = String.format("%s-%s-%s", alice.getName(), groupTag, "hello");
         byte[] encrypt = RSAUtil.encrypt(signReqString.getBytes(StandardCharsets.UTF_8), rsaPubKey);
-        signServer.sign(encrypt);
+        signServer.newSignRequest(encrypt, storageGateway);
+
+        String authorizedString = String.format("%s-%s", bob.getName(), groupTag);
+        encrypt = RSAUtil.encrypt(authorizedString.getBytes(StandardCharsets.UTF_8), rsaPubKey);
+        signServer.authorized(encrypt, storageGateway);
         logger.debug("-----------------------Step 5: co-signature done----------------------------");
     }
 

@@ -1,23 +1,109 @@
 package org.bitkernel;
 
 import com.sun.istack.internal.NotNull;
+import javafx.util.Pair;
+import lombok.extern.slf4j.Slf4j;
 import org.bitkernel.rsa.RSAKeyPair;
 import org.bitkernel.rsa.RSAUtil;
 
+import java.security.PrivateKey;
 import java.security.PublicKey;
+import java.util.*;
 
+@Slf4j
 public class SignServer {
     private final RSAKeyPair rsaKeyPair = new RSAKeyPair();
+    private final Map<String, SignRequest> signRequestMap = new LinkedHashMap<>();
 
     @NotNull
     public PublicKey getRSAPubKey() {
         return rsaKeyPair.getPublicKey();
     }
 
-    @NotNull
-    public void sign(@NotNull byte[] encryptReq) {
+    public void newSignRequest(@NotNull byte[] encryptReq,
+                               @NotNull StorageGateway storageGateway) {
         byte[] decrypt = RSAUtil.decrypt(encryptReq, rsaKeyPair.getPrivateKey());
         String signReqString = new String(decrypt);
         String[] split = signReqString.split("-");
+
+        String userName = split[0].trim();
+        String groupTag = split[1].trim();
+        String msg = split[2].trim();
+
+        Pair<Integer, byte[]> subPriKey = storageGateway.getSubPriKey(userName, groupTag);
+        int groupMemberNum = storageGateway.getGroupMemberNum(groupTag);
+        SignRequest signRequest = new SignRequest(userName, groupTag, msg, groupMemberNum, subPriKey);
+        signRequestMap.put(groupTag, signRequest);
+    }
+
+    public void authorized(@NotNull byte[] encryptReq,
+                           @NotNull StorageGateway storageGateway) {
+        byte[] decrypt = RSAUtil.decrypt(encryptReq, rsaKeyPair.getPrivateKey());
+        String authorizedString = new String(decrypt);
+        String[] split = authorizedString.split("-");
+
+        String userName = split[0].trim();
+        String groupTag = split[1].trim();
+
+        Pair<Integer, byte[]> subPriKey = storageGateway.getSubPriKey(userName, groupTag);
+        SignRequest signRequest = signRequestMap.get(groupTag);
+        signRequest.addSubPriKey(userName, subPriKey);
+
+        if (signRequest.isFullyAuthorized()) {
+            PrivateKey privateKey = signRequest.sendLetter();
+            if (privateKey.toString().equals(storageGateway.getPrivateKeyMap().get(groupTag).toString())) {
+                logger.debug("OK");
+            }
+        }
+    }
+}
+
+@Slf4j
+class SignRequest {
+    private final String userName;
+    private final String groupTag;
+    private final String msg;
+    private final int groupMemberNum;
+    private final List<Pair<Integer, byte[]>> subPriKeyList = new ArrayList<>();
+    private final Set<String> authorizedUserList = new HashSet<>();
+
+    public SignRequest(@NotNull String userName, @NotNull String groupTag, @NotNull String msg,
+                       int groupMemberNum, @NotNull Pair<Integer, byte[]> subPriKey) {
+        this.userName = userName;
+        this.groupTag = groupTag;
+        this.msg = msg;
+        this.groupMemberNum = groupMemberNum;
+        subPriKeyList.add(subPriKey);
+        authorizedUserList.add(userName);
+    }
+
+    public boolean isFullyAuthorized() {
+        return subPriKeyList.size() == groupMemberNum;
+    }
+
+    public void addSubPriKey(@NotNull String userName,
+                             @NotNull Pair<Integer, byte[]> subPriKey) {
+        if (authorizedUserList.contains(userName)) {
+            logger.error("User {} has authorized", userName);
+            return;
+        }
+        authorizedUserList.add(userName);
+        subPriKeyList.add(subPriKey);
+    }
+
+    public PrivateKey sendLetter() {
+        subPriKeyList.sort(Comparator.comparing(Pair::getKey));
+        int len = subPriKeyList.stream().map(p -> p.getValue().length)
+                .reduce(0, Integer::sum);
+        byte[] priKey = new byte[len];
+        int pos = 0;
+        for (Pair<Integer, byte[]> subPriKey : subPriKeyList) {
+            System.arraycopy(subPriKey.getValue(), 0, priKey,
+                    pos, subPriKey.getValue().length);
+            pos += subPriKey.getValue().length;
+        }
+        String priKeyString = new String(priKey);
+        PrivateKey privateKey = RSAUtil.getPrivateKey(priKeyString);
+        return privateKey;
     }
 }
