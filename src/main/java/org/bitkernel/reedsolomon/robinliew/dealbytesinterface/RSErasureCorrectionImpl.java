@@ -28,8 +28,8 @@ public class RSErasureCorrectionImpl implements IRSErasureCorrection{
     public  int BYTES_IN_INT = 4;
    
 	@Override
-	public byte[] rs_Encoder(byte[] srcBuffer, int sliceLength, int sliceCount,
-			int fecSliceCount) {
+	public byte[] encoder(byte[] srcBuffer, int sliceLength, int sliceCount,
+						  int fecSliceCount) {
 		
 			byte[] rsData=null;
 			
@@ -88,8 +88,8 @@ public class RSErasureCorrectionImpl implements IRSErasureCorrection{
 	}
 	
 	@Override
-	public int rs_Decoder(byte[] srcEraseBuff, int sliceLen, int sliceCount,
-			int rsSliceCount, boolean[] eraserFlag) {//eraserFlag used to record information of lost pieces(用来记录丢失片的信息)
+	public int decoder(byte[] srcEraseBuff, int sliceLen, int sliceCount,
+					   int rsSliceCount, boolean[] eraserFlag) {//eraserFlag used to record information of lost pieces(用来记录丢失片的信息)
 		
 		try{
     		

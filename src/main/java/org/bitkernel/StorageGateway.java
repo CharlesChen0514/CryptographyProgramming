@@ -6,6 +6,8 @@ import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.Setter;
 import lombok.extern.slf4j.Slf4j;
+import org.bitkernel.reedsolomon.robinliew.dealbytesinterface.IRSErasureCorrection;
+import org.bitkernel.reedsolomon.robinliew.dealbytesinterface.RSErasureCorrectionImpl;
 import org.bitkernel.rsa.RSAKeyPair;
 import org.bitkernel.rsa.RSAUtil;
 
@@ -109,16 +111,35 @@ public class StorageGateway {
      */
     @NotNull
     private List<DataBlock> generateDataBlocks(int subKeyId, @NotNull byte[] subPriKey) {
-        int oneBlock = (int) Math.ceil(subPriKey.length * 1.0 / 4);
-        byte[] checkBytes = new byte[oneBlock * 2];
-        byte[] fullDataWithCheckData = new byte[subPriKey.length + checkBytes.length];
-        System.arraycopy(subPriKey, 0, fullDataWithCheckData, 0, subPriKey.length);
-        fullDataWithCheckData = ReedSolomonUtil.encode(fullDataWithCheckData, checkBytes.length);
-        System.arraycopy(fullDataWithCheckData, subPriKey.length, checkBytes, 0, checkBytes.length);
-
         List<DataBlock> dataBlocks = slice(subKeyId, subPriKey, 4);
-        dataBlocks.addAll(slice(subKeyId, subPriKey.length, 4, checkBytes, 2));
+        byte[] combine = combine(dataBlocks, dataBlocks.size());
+        IRSErasureCorrection rsProcessor = new RSErasureCorrectionImpl();
+        byte[] dataWithChecksum = rsProcessor.encoder(combine, dataBlocks.get(0).getBytes().length, 4, 2);
+        return convertToBlockList(dataWithChecksum, 6);
+    }
+
+    @NotNull
+    private List<DataBlock> convertToBlockList(@NotNull byte[] bytes, int num) {
+        int blockSize = bytes.length / num;
+        List<DataBlock> dataBlocks = new ArrayList<>();
+        for (int i = 0; i < num; i++) {
+            byte[] block = new byte[blockSize];
+            System.arraycopy(bytes, i * blockSize, block, 0, blockSize);
+            dataBlocks.add(new DataBlock(block));
+        }
         return dataBlocks;
+    }
+
+    @NotNull
+    private byte[] combine(@NotNull List<DataBlock> dataBlocks, int num) {
+        int totalLen = dataBlocks.get(0).getBytes().length;
+        byte[] fullData = new byte[totalLen * num];
+        dataBlocks.sort(Comparator.comparing(DataBlock::getBlockId));
+        for (DataBlock dataBlock: dataBlocks) {
+            System.arraycopy(dataBlock.getBytes(), 0,
+                    fullData, dataBlock.getBlockId() * totalLen, totalLen);
+        }
+        return fullData;
     }
 
     /**
@@ -149,13 +170,16 @@ public class StorageGateway {
 
     @NotNull
     public PublicKey getPubKey(@NotNull String groupTag) {
-        List<DataBlock> dataBlocks = new ArrayList<>();
-        for (Storage storage: storages) {
+        DataBlock[] dataBlocks = new DataBlock[6];
+        for (int i = 0; i < storages.length; i++) {
+            Storage storage = storages[i];
             if (!storage.isWork()) {
                 logger.error("Current storage provider is not working, failed to get public key blocks");
                 continue;
             }
-            dataBlocks.addAll(storage.getPubKeyBlock(groupTag));
+            List<DataBlock> blocks = storage.getPubKeyBlock(groupTag);
+            dataBlocks[i * 2] = blocks.get(0);
+            dataBlocks[i * 2 + 1] = blocks.get(1);
         }
         byte[] bytes = recoverData(dataBlocks, pubKeyLenMap.get(groupTag));
         return RSAUtil.getPublicKey(new String(bytes));
@@ -164,18 +188,20 @@ public class StorageGateway {
     @NotNull
     public Pair<Integer, byte[]> getSubPriKey(@NotNull String userName,
                                               @NotNull String groupTag) {
-        List<DataBlock> subPriBlocks = new ArrayList<>();
-        for (Storage storage: this.storages) {
+        DataBlock[] dataBlocks = new DataBlock[6];
+        for (int i = 0; i < storages.length; i++) {
+            Storage storage = storages[i];
             if (!storage.isWork()) {
                 logger.error("Current storage provider is not working, failed to get the sub-private key blocks");
                 continue;
             }
             List<DataBlock> blocks = storage.getPriKeyDataBlocks(groupTag, userName);
-            subPriBlocks.addAll(blocks);
+            dataBlocks[i * 2] = blocks.get(0);
+            dataBlocks[i * 2 + 1] = blocks.get(1);
         }
-        int belongKeyId = subPriBlocks.get(0).getBelongKeyId();
+//        int belongKeyId = subPriBlocks.get(0).getBelongKeyId();
         int len = subPriKeyLenMap.get(groupTag).get(userName);
-        return new Pair<>(belongKeyId, recoverData(subPriBlocks, len));
+        return new Pair<>(0, recoverData(dataBlocks, len));
     }
 
     /**
@@ -186,14 +212,36 @@ public class StorageGateway {
      * @return origin data
      */
     @NotNull
-    private byte[] recoverData(@NotNull List<DataBlock> blocks, int len) {
-        blocks.sort(Comparator.comparing(DataBlock::getBlockId));
-        byte[] dataBytesWithCheck = parse(blocks, len);
-        int errorCorrectionSymbols = blocks.get(0).getDataCapacity() * 2;
-        dataBytesWithCheck = ReedSolomonUtil.decode(dataBytesWithCheck, errorCorrectionSymbols);
-        byte[] bytes = new byte[dataBytesWithCheck.length - errorCorrectionSymbols];
-        System.arraycopy(dataBytesWithCheck, 0, bytes, 0, bytes.length);
-        return bytes;
+    private byte[] recoverData(@NotNull DataBlock[] blocks, int len) {
+        int c = 0;
+        for (DataBlock dataBlock : blocks) {
+            if (dataBlock != null) {
+                c = dataBlock.getBytes().length;
+                break;
+            }
+        }
+        byte[] dataBytesWithCheck = new byte[c * 6];
+        boolean[] eraserFlag = new boolean[blocks.length];
+        Arrays.fill(eraserFlag, true);
+        for (int i = 0; i < blocks.length; i++) {
+            DataBlock block = blocks[i];
+            if (block == null) {
+                eraserFlag[i] = false;
+                continue;
+            }
+            System.arraycopy(block.getBytes(), 0, dataBytesWithCheck, i * c, c);
+        }
+        IRSErasureCorrection rsProcessor = new RSErasureCorrectionImpl();
+        int result = rsProcessor.decoder(dataBytesWithCheck, c, 4, 2, eraserFlag);
+        if (result == 0) {
+            logger.debug("Data recover success");
+        } else {
+            logger.error("Data recover failed");
+        }
+        List<DataBlock> dataBlocks = convertToBlockList(dataBytesWithCheck, 6);
+        dataBlocks.remove(dataBlocks.size() - 1);
+        dataBlocks.remove(dataBlocks.size() - 1);
+        return parse(dataBlocks, len);
     }
 
     /**
@@ -249,7 +297,9 @@ public class StorageGateway {
      */
     @NotNull
     private byte[] parse(@NotNull List<DataBlock> dataBlocks, int len) {
-        byte[] validBytes = new byte[len + 2 * dataBlocks.get(0).getDataCapacity()];
+        int validNum = dataBlocks.stream().map(DataBlock::getValByteNum)
+                .reduce(0, Integer::sum);
+        byte[] validBytes = new byte[validNum];
         for (DataBlock dataBlock: dataBlocks) {
             byte[] dataBlockBytes = dataBlock.getValidBytes();
             System.arraycopy(dataBlockBytes, 0, validBytes,

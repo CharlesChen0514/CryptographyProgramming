@@ -13,7 +13,7 @@ public interface IRSErasureCorrection {
 	 * @param fecSliceCount The number of pieces of erasure check in a file block(文件块内纠删校验的片的数量)
 	 * @return The return value is the check data(返回值是校验数据)
 	 */
-	public byte[] rs_Encoder(byte[] srcBuffer,int sliceLength,int sliceCount,int fecSliceCount);
+	public byte[] encoder(byte[] srcBuffer, int sliceLength, int sliceCount, int fecSliceCount);
 	/**
 	 * 解码
 	 * @param srcEraseBuff Received file blocks (including raw data and erasure check data)(接收到的文件块（包括原始数据和纠删校验数据）)
@@ -29,5 +29,5 @@ public interface IRSErasureCorrection {
 	 *			(返回值如果是0代表成功，说明在传输过程中文件块数据正确或经擦出的片数在容许范围内，同时把纠删后的原始数据写入srcEraseBuff；
 	 * 			如果非零代表不成功，说明经擦出的片数超过了RS的纠删能力)
 	 */
-	public int rs_Decoder(byte[] srcEraseBuff,int sliceLen,int sliceCount,int rsSliceCount,boolean[] eraserFlag);
+	public int decoder(byte[] srcEraseBuff, int sliceLen, int sliceCount, int rsSliceCount, boolean[] eraserFlag);
 }
