@@ -19,6 +19,9 @@ import java.util.*;
 
 @Slf4j
 public class StorageGateway {
+    private final static int SLICE_NUM = 4;
+    private final static int CHECK_NUM = 2;
+    private final static int TOTAL_BLOCK_NUM = SLICE_NUM + CHECK_NUM;
     /** Group tag -> public key, is only used as check */
     @Getter
     private final Map<String, PublicKey> publicKeyMap = new LinkedHashMap<>();
@@ -191,8 +194,9 @@ public class StorageGateway {
             dataBlocks[i * 2] = blocks.get(0);
             dataBlocks[i * 2 + 1] = blocks.get(1);
         }
-//        int belongKeyId = subPriBlocks.get(0).getBelongKeyId();
-        return new Pair<>(0, recoverData(dataBlocks));
+        int belongKeyId = Arrays.stream(dataBlocks).filter(Objects::nonNull)
+                .findFirst().get().getBelongKeyId();
+        return new Pair<>(belongKeyId, recoverData(dataBlocks));
     }
 
     /**
@@ -204,32 +208,30 @@ public class StorageGateway {
      */
     @NotNull
     private byte[] recoverData(@NotNull DataBlock[] blocks) {
-        int c = 0;
-        for (DataBlock dataBlock : blocks) {
-            if (dataBlock != null) {
-                c = dataBlock.getBytes().length;
-                break;
-            }
-        }
-        byte[] dataBytesWithCheck = new byte[c * 6];
-        boolean[] eraserFlag = new boolean[blocks.length];
+        int len = Arrays.stream(blocks).filter(Objects::nonNull)
+                .map(d -> d.getBytes().length).reduce(0, Integer::max);
+        byte[] dataBytesWithCheck = new byte[len * TOTAL_BLOCK_NUM];
+        boolean[] eraserFlag = new boolean[TOTAL_BLOCK_NUM];
         Arrays.fill(eraserFlag, true);
-        for (int i = 0; i < blocks.length; i++) {
+        for (int i = 0; i < TOTAL_BLOCK_NUM; i++) {
             DataBlock block = blocks[i];
             if (block == null) {
                 eraserFlag[i] = false;
                 continue;
             }
-            System.arraycopy(block.getBytes(), 0, dataBytesWithCheck, i * c, c);
+            System.arraycopy(block.getBytes(), 0, dataBytesWithCheck, i * len, len);
         }
+
         IRSErasureCorrection rsProcessor = new RSErasureCorrectionImpl();
-        int result = rsProcessor.decoder(dataBytesWithCheck, c, 4, 2, eraserFlag);
+        int result = rsProcessor.decoder(dataBytesWithCheck, len, SLICE_NUM, CHECK_NUM, eraserFlag);
         if (result == 0) {
             logger.debug("Data recover success");
         } else {
             logger.error("Data recover failed");
         }
+
         List<DataBlock> dataBlocks = convertToBlockList(dataBytesWithCheck, 6);
+        // remove check data blocks
         dataBlocks.remove(dataBlocks.size() - 1);
         dataBlocks.remove(dataBlocks.size() - 1);
         return parse(dataBlocks);
@@ -240,16 +242,6 @@ public class StorageGateway {
      */
     @NotNull
     private List<DataBlock> slice(int id, @NotNull byte[] bytes, int num) {
-        return slice(id, 0, 0, bytes, num);
-    }
-
-    /**
-     * @param offset
-     * @param startBlockId the id of the starting data block
-     */
-    @NotNull
-    private List<DataBlock> slice(int keyId, int offset, int startBlockId,
-                                  @NotNull byte[] bytes, int num) {
         // standardized data so that it can be divided by {num}
         int addByteNum = bytes.length % num == 0 ? 0 : num - bytes.length % num;
         byte[] byteFormatted = new byte[addByteNum + bytes.length];
@@ -259,19 +251,16 @@ public class StorageGateway {
         List<DataBlock> dataBlocks = new ArrayList<>();
 
         int pos = 0;
-        int blockId = startBlockId;
+        int blockId = 0;
         while (pos < bytes.length) {
             int remainByte = bytes.length - pos;
             int valByteNum = Math.min(subBlockSize, remainByte);
             byte[] block = new byte[subBlockSize + DataBlock.FLAG_BYTE_LEN];
             // The first six bytes are fixed flag
-            block[0] = (byte) keyId;
+            block[0] = (byte) id;
             block[1] = (byte) blockId;
-            int realPos = pos + offset;
-            block[2] = (byte) (realPos >> 8);
-            block[3] = (byte) realPos;
-            block[4] = (byte) (valByteNum >> 8);
-            block[5] = (byte) valByteNum;
+            block[2] = (byte) (valByteNum >> 8);
+            block[3] = (byte) valByteNum;
             System.arraycopy(byteFormatted, pos, block, DataBlock.FLAG_BYTE_LEN, valByteNum);
             DataBlock dataBlock = new DataBlock(block);
             dataBlocks.add(dataBlock);
@@ -290,10 +279,12 @@ public class StorageGateway {
         int validNum = dataBlocks.stream().map(DataBlock::getValByteNum)
                 .reduce(0, Integer::sum);
         byte[] validBytes = new byte[validNum];
-        for (DataBlock dataBlock: dataBlocks) {
+        int pos = 0;
+        for (DataBlock dataBlock : dataBlocks) {
             byte[] dataBlockBytes = dataBlock.getValidBytes();
             System.arraycopy(dataBlockBytes, 0, validBytes,
-                    dataBlock.getPos(), dataBlockBytes.length);
+                    pos, dataBlockBytes.length);
+            pos += dataBlockBytes.length;
         }
         return validBytes;
     }
@@ -314,8 +305,8 @@ public class StorageGateway {
 
 @AllArgsConstructor
 class DataBlock {
-    public static final int FLAG_BYTE_LEN = 1 + 1 + 2 + 2;
-    /** | belongKeyId(1) | BlockId(1) | pos(2) | valid length(2) | data(-) | */
+    public static final int FLAG_BYTE_LEN = 1 + 1 + 2;
+    /** | belongKeyId(1) | BlockId(1) | valid length(2) | data(-) | */
     @Getter
     private final byte[] bytes;
 
@@ -327,18 +318,10 @@ class DataBlock {
         return bytes[1];
     }
 
-    public int getPos() {
+    public int getValByteNum() {
         ByteBuffer buf = ByteBuffer.allocate(2);
         buf.put(bytes[2]);
         buf.put(bytes[3]);
-        buf.position(0);
-        return buf.getShort();
-    }
-
-    public int getValByteNum() {
-        ByteBuffer buf = ByteBuffer.allocate(2);
-        buf.put(bytes[4]);
-        buf.put(bytes[5]);
         buf.position(0);
         return buf.getShort();
     }
