@@ -102,7 +102,7 @@ public class StorageGateway {
         System.arraycopy(fullDataWithCheckData, subPriKey.length, checkBytes, 0, checkBytes.length);
 
         List<DataBlock> dataBlocks = slice(subKeyId, subPriKey, 4);
-        dataBlocks.addAll(slice(subKeyId, 4, checkBytes, 2));
+        dataBlocks.addAll(slice(subKeyId, subPriKey.length, 4, checkBytes, 2));
         return dataBlocks;
     }
 
@@ -138,7 +138,7 @@ public class StorageGateway {
         for (Storage storage: storages) {
             dataBlocks.addAll(storage.getPubKeyBlock(groupTag));
         }
-        byte[] bytes = recoverData(dataBlocks);
+        byte[] bytes = recoverData(dataBlocks, pubKeyLenMap.get(groupTag));
         return RSAUtil.getPublicKey(new String(bytes));
     }
 
@@ -151,12 +151,14 @@ public class StorageGateway {
             subPriBlocks.addAll(blocks);
         }
         int belongKeyId = subPriBlocks.get(0).getBelongKeyId();
-        return new Pair<>(belongKeyId, recoverData(subPriBlocks));
+        int len = subPriKeyLenMap.get(groupTag).get(userName);
+        return new Pair<>(belongKeyId, recoverData(subPriBlocks, len));
     }
 
     @NotNull
-    private byte[] recoverData(@NotNull List<DataBlock> blocks) {
-        byte[] dataBytesWithCheck = parse(blocks);
+    private byte[] recoverData(@NotNull List<DataBlock> blocks, int len) {
+        blocks.sort(Comparator.comparing(DataBlock::getBlockId));
+        byte[] dataBytesWithCheck = parse(blocks, len);
         int errorCorrectionSymbols = blocks.get(0).getDataCapacity() * 2;
         dataBytesWithCheck = ReedSolomonUtil.decode(dataBytesWithCheck, errorCorrectionSymbols);
         byte[] bytes = new byte[dataBytesWithCheck.length - errorCorrectionSymbols];
@@ -169,14 +171,15 @@ public class StorageGateway {
      */
     @NotNull
     private List<DataBlock> slice(int id, @NotNull byte[] bytes, int num) {
-        return slice(id, 0, bytes, num);
+        return slice(id, 0, 0, bytes, num);
     }
 
     /**
+     * @param offset
      * @param startBlockId the id of the starting data block
      */
     @NotNull
-    private List<DataBlock> slice(int keyId, int startBlockId,
+    private List<DataBlock> slice(int keyId, int offset, int startBlockId,
                                   @NotNull byte[] bytes, int num) {
         // standardized data so that it can be divided by {num}
         int addByteNum = bytes.length % num == 0 ? 0 : num - bytes.length % num;
@@ -192,11 +195,14 @@ public class StorageGateway {
             int remainByte = bytes.length - pos;
             int valByteNum = Math.min(subBlockSize, remainByte);
             byte[] block = new byte[subBlockSize + DataBlock.FLAG_BYTE_LEN];
-            // The first four bytes are fixed flag
+            // The first six bytes are fixed flag
             block[0] = (byte) keyId;
             block[1] = (byte) blockId;
-            block[2] = (byte) (valByteNum >> 8);
-            block[3] = (byte) valByteNum;
+            int realPos = pos + offset;
+            block[2] = (byte) (realPos >> 8);
+            block[3] = (byte) realPos;
+            block[4] = (byte) (valByteNum >> 8);
+            block[5] = (byte) valByteNum;
             System.arraycopy(byteFormatted, pos, block, DataBlock.FLAG_BYTE_LEN, valByteNum);
             DataBlock dataBlock = new DataBlock(block);
             dataBlocks.add(dataBlock);
@@ -208,15 +214,14 @@ public class StorageGateway {
     }
 
     @NotNull
-    private byte[] parse(@NotNull List<DataBlock> dataBlocks) {
+    private byte[] parse(@NotNull List<DataBlock> dataBlocks, int len) {
         int validByteNum = dataBlocks.stream().map(DataBlock::getValByteNum)
                 .reduce(0, Integer::sum);
-        byte[] validBytes = new byte[validByteNum];
-        int pos = 0;
+        byte[] validBytes = new byte[len + 2 * dataBlocks.get(0).getDataCapacity()];
         for (DataBlock dataBlock: dataBlocks) {
             byte[] dataBlockBytes = dataBlock.getValidBytes();
-            System.arraycopy(dataBlockBytes, 0, validBytes, pos, dataBlockBytes.length);
-            pos += dataBlockBytes.length;
+            System.arraycopy(dataBlockBytes, 0, validBytes,
+                    dataBlock.getPos(), dataBlockBytes.length);
         }
         return validBytes;
     }
@@ -226,7 +231,7 @@ public class StorageGateway {
         new SecureRandom().nextBytes(bytes);
         StorageGateway gateway = new StorageGateway();
         List<DataBlock> slices = gateway.slice(0, bytes, 3);
-        byte[] newBytes = gateway.parse(slices);
+        byte[] newBytes = gateway.parse(slices, bytes.length);
         String str1 = new String(bytes);
         String str2 = new String(newBytes);
         if (str1.equals(str2)) {
@@ -237,8 +242,8 @@ public class StorageGateway {
 
 @AllArgsConstructor
 class DataBlock {
-    public static final int FLAG_BYTE_LEN = 1 + 1 + 2;
-    /** | belongKeyId(1) | BlockId(1) | valid length(2) | data(-) | */
+    public static final int FLAG_BYTE_LEN = 1 + 1 + 2 + 2;
+    /** | belongKeyId(1) | BlockId(1) | pos(2) | valid length(2) | data(-) | */
     @Getter
     private final byte[] bytes;
 
@@ -250,10 +255,18 @@ class DataBlock {
         return bytes[1];
     }
 
-    public int getValByteNum() {
+    public int getPos() {
         ByteBuffer buf = ByteBuffer.allocate(2);
         buf.put(bytes[2]);
         buf.put(bytes[3]);
+        buf.position(0);
+        return buf.getShort();
+    }
+
+    public int getValByteNum() {
+        ByteBuffer buf = ByteBuffer.allocate(2);
+        buf.put(bytes[4]);
+        buf.put(bytes[5]);
         buf.position(0);
         return buf.getShort();
     }
