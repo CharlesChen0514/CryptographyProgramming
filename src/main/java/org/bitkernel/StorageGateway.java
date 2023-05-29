@@ -142,11 +142,6 @@ public class StorageGateway {
         return new Pair<>(belongKeyId, recoverData(subPriBlocks));
     }
 
-    public int getGroupMemberNum(@NotNull String groupTag) {
-        return Arrays.stream(storages).map(s -> s.getSubPriKeyNum(groupTag))
-                .reduce(0, Integer::sum) / 3;
-    }
-
     @NotNull
     private byte[] recoverData(List<DataBlock> blocks) {
         byte[] dataBytesWithCheck = parse(blocks);
@@ -324,11 +319,6 @@ class Storage {
             return new ArrayList<>();
         }
         return priKeyDataBlockMap.get(groupTag).get(userName);
-    }
-
-    public int getSubPriKeyNum(@NotNull String groupTag) {
-        Map<String, List<DataBlock>> map = priKeyDataBlockMap.getOrDefault(groupTag, new LinkedHashMap<>());
-        return map.size();
     }
 
     public void putPubKeyBlock(@NotNull String groupTag,

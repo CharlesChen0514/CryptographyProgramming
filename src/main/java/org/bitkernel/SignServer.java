@@ -34,7 +34,7 @@ public class SignServer {
 
         Pair<Integer, byte[]> subPriKey = storageGateway.getSubPriKey(userName, groupTag);
         PublicKey pubKey = storageGateway.getPubKey(groupTag);
-        int groupMemberNum = storageGateway.getGroupMemberNum(groupTag);
+        int groupMemberNum = groupTag.split("@").length;
         SignRequest signRequest = new SignRequest(userName, groupTag, msg,
                 groupMemberNum, subPriKey, pubKey);
         signRequestMap.put(groupTag, signRequest);
