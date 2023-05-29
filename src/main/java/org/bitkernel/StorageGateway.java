@@ -26,6 +26,10 @@ public class StorageGateway {
     @Getter
     private final Map<String, Map<String, byte[]>> userSubPriKeyMap = new LinkedHashMap<>();
     private final Storage[] storages = new Storage[3];
+    /** Group tag -> user name -> sub-private key length */
+    private final Map<String, Map<String, Integer>> subPriKeyLenMap = new LinkedHashMap<>();
+    /** Group tag ->  public key length */
+    private final Map<String, Integer> pubKeyLenMap = new LinkedHashMap<>();
 
     public StorageGateway() {
         for (int i = 0; i < storages.length; i++) {
@@ -39,13 +43,17 @@ public class StorageGateway {
     public void store(@NotNull User[] group,
                       @NotNull String groupTag,
                       @NotNull RSAKeyPair rsAKeyPair) {
+        // use as a check
         publicKeyMap.put(groupTag, rsAKeyPair.getPublicKey());
         privateKeyMap.put(groupTag, rsAKeyPair.getPrivateKey());
+
         List<byte[]> subPriKey = getPriKeySlicing(rsAKeyPair.getPrivateKey(), group.length);
         for (int i = 0; i < subPriKey.size(); i++) {
             String userName = group[i].getName();
+            // use as a check
             userSubPriKeyMap.putIfAbsent(groupTag, new LinkedHashMap<>());
             userSubPriKeyMap.get(groupTag).put(userName, subPriKey.get(i));
+            // actual storage action
             storeSubPriKey(i, groupTag, userName, subPriKey.get(i));
         }
         storePubKey(groupTag, rsAKeyPair.getPublicKey());
@@ -55,6 +63,7 @@ public class StorageGateway {
                             @NotNull PublicKey pubKey) {
         String pubKeyEncodedBase64 = RSAUtil.getKeyEncodedBase64(pubKey);
         byte[] bytes = pubKeyEncodedBase64.getBytes();
+        pubKeyLenMap.put(groupTag, bytes.length);
         List<DataBlock> dataBlocks = generateDataBlocks(0, bytes);
         for (int i = 0; i < storages.length; i++) {
             storages[i].putPubKeyBlock(groupTag, dataBlocks.get(i * 2));
@@ -67,6 +76,9 @@ public class StorageGateway {
                                 @NotNull String groupTag,
                                 @NotNull String userName,
                                 @NotNull byte[] subPriKey) {
+        subPriKeyLenMap.putIfAbsent(groupTag, new LinkedHashMap<>());
+        subPriKeyLenMap.get(groupTag).put(userName, subPriKey.length);
+
         List<DataBlock> dataBlocks = generateDataBlocks(keyId, subPriKey);
         for (int i = 0; i < storages.length; i++) {
             storages[i].putPriKeyBlock(groupTag, userName, dataBlocks.get(i * 2));
@@ -143,7 +155,7 @@ public class StorageGateway {
     }
 
     @NotNull
-    private byte[] recoverData(List<DataBlock> blocks) {
+    private byte[] recoverData(@NotNull List<DataBlock> blocks) {
         byte[] dataBytesWithCheck = parse(blocks);
         int errorCorrectionSymbols = blocks.get(0).getDataCapacity() * 2;
         dataBytesWithCheck = ReedSolomonUtil.decode(dataBytesWithCheck, errorCorrectionSymbols);
@@ -196,30 +208,6 @@ public class StorageGateway {
     }
 
     @NotNull
-    private List<DataBlock> convertToBlockList(@NotNull byte[] bytes, int num) {
-        int blockSize = bytes.length / num;
-        List<DataBlock> dataBlocks = new ArrayList<>();
-        for (int i = 0; i < num; i++) {
-            byte[] block = new byte[blockSize];
-            System.arraycopy(bytes, i * blockSize, block, 0, blockSize);
-            dataBlocks.add(new DataBlock(block));
-        }
-        return dataBlocks;
-    }
-
-    @NotNull
-    private byte[] combine(@NotNull List<DataBlock> dataBlocks, int num) {
-        int totalLen = dataBlocks.get(0).getBytes().length;
-        byte[] fullData = new byte[totalLen * num];
-        dataBlocks.sort(Comparator.comparing(DataBlock::getBlockId));
-        for (DataBlock dataBlock: dataBlocks) {
-            System.arraycopy(dataBlock.getBytes(), 0,
-                    fullData, dataBlock.getBlockId() * totalLen, totalLen);
-        }
-        return fullData;
-    }
-
-    @NotNull
     private byte[] parse(@NotNull List<DataBlock> dataBlocks) {
         int validByteNum = dataBlocks.stream().map(DataBlock::getValByteNum)
                 .reduce(0, Integer::sum);
@@ -238,9 +226,7 @@ public class StorageGateway {
         new SecureRandom().nextBytes(bytes);
         StorageGateway gateway = new StorageGateway();
         List<DataBlock> slices = gateway.slice(0, bytes, 3);
-        byte[] combine = gateway.combine(slices, 3);
-        List<DataBlock> dataBlocks = gateway.convertToBlockList(combine, 3);
-        byte[] newBytes = gateway.parse(dataBlocks);
+        byte[] newBytes = gateway.parse(slices);
         String str1 = new String(bytes);
         String str2 = new String(newBytes);
         if (str1.equals(str2)) {
