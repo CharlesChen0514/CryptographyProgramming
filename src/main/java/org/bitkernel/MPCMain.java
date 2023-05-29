@@ -12,6 +12,8 @@ import java.util.List;
 
 @Slf4j
 public class MPCMain {
+    public static final int R_BYTE_NUM = 16;
+    public static final int RSA_BYTE_NUM = 128;
     /**
      * generate the message transfer path randomly
      * @param users user group
@@ -105,16 +107,16 @@ public class MPCMain {
     @NotNull
     public static BigInteger dataPadding(@NotNull BigInteger data) {
         byte[] input = data.toByteArray();
-        if (input.length > Constant.R_BYTE_NUM) {
+        if (input.length > R_BYTE_NUM) {
             logger.error("Input error, the byte length {} is not as expected {}",
-                    input.length, Constant.R_BYTE_NUM);
+                    input.length, R_BYTE_NUM);
             return BigInteger.ZERO;
         }
         // Standardize the data to 128 bit
-        byte[] inputFormatted = new byte[Constant.R_BYTE_NUM];
-        System.arraycopy(input, 0, inputFormatted, Constant.R_BYTE_NUM - input.length, input.length);
+        byte[] inputFormatted = new byte[R_BYTE_NUM];
+        System.arraycopy(input, 0, inputFormatted, R_BYTE_NUM - input.length, input.length);
         // Expanded to 1024 bits in equal proportion
-        byte[] output = new byte[Constant.RSA_BYTE_NUM];
+        byte[] output = new byte[RSA_BYTE_NUM];
         int factor = output.length / inputFormatted.length;
         for (int i = 0; i < inputFormatted.length; i++) {
             output[i * factor] = inputFormatted[i];
