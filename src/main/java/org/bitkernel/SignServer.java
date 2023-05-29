@@ -6,6 +6,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.bitkernel.rsa.RSAKeyPair;
 import org.bitkernel.rsa.RSAUtil;
 
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.security.PrivateKey;
 import java.security.PublicKey;
 import java.util.*;
@@ -31,8 +33,10 @@ public class SignServer {
         String msg = split[2].trim();
 
         Pair<Integer, byte[]> subPriKey = storageGateway.getSubPriKey(userName, groupTag);
+        PublicKey pubKey = storageGateway.getPubKey(groupTag);
         int groupMemberNum = storageGateway.getGroupMemberNum(groupTag);
-        SignRequest signRequest = new SignRequest(userName, groupTag, msg, groupMemberNum, subPriKey);
+        SignRequest signRequest = new SignRequest(userName, groupTag, msg,
+                groupMemberNum, subPriKey, pubKey);
         signRequestMap.put(groupTag, signRequest);
     }
 
@@ -50,31 +54,32 @@ public class SignServer {
         signRequest.addSubPriKey(userName, subPriKey);
 
         if (signRequest.isFullyAuthorized()) {
-            PrivateKey privateKey = signRequest.sendLetter();
-            if (privateKey.toString().equals(storageGateway.getPrivateKeyMap().get(groupTag).toString())) {
-                logger.debug("OK");
-            }
+            signRequest.sendLetter();
         }
     }
 }
 
 @Slf4j
 class SignRequest {
-    private final String userName;
+    private final String initiator;
     private final String groupTag;
     private final String msg;
     private final int groupMemberNum;
     private final List<Pair<Integer, byte[]>> subPriKeyList = new ArrayList<>();
     private final Set<String> authorizedUserList = new HashSet<>();
+    private final PublicKey publicKey;
 
-    public SignRequest(@NotNull String userName, @NotNull String groupTag, @NotNull String msg,
-                       int groupMemberNum, @NotNull Pair<Integer, byte[]> subPriKey) {
-        this.userName = userName;
+    public SignRequest(@NotNull String userName, @NotNull String groupTag,
+                       @NotNull String msg, int groupMemberNum,
+                       @NotNull Pair<Integer, byte[]> subPriKey,
+                       @NotNull PublicKey publicKey) {
+        this.initiator = userName;
         this.groupTag = groupTag;
         this.msg = msg;
         this.groupMemberNum = groupMemberNum;
         subPriKeyList.add(subPriKey);
         authorizedUserList.add(userName);
+        this.publicKey = publicKey;
     }
 
     public boolean isFullyAuthorized() {
@@ -91,7 +96,27 @@ class SignRequest {
         subPriKeyList.add(subPriKey);
     }
 
-    public PrivateKey sendLetter() {
+    public void sendLetter() {
+        MessageDigest md = getMessageDigestInstance();
+        byte[] hash = md.digest(msg.getBytes());
+
+        PrivateKey privateKey = constructPriKey();
+        byte[] signature = RSAUtil.encrypt(hash, privateKey);
+
+        Letter letter = new Letter(msg, signature, publicKey);
+    }
+
+    public static MessageDigest getMessageDigestInstance() {
+        MessageDigest md = null;
+        try {
+            md = MessageDigest.getInstance("SHA-256");
+        } catch (NoSuchAlgorithmException e) {
+            logger.error(e.getMessage());
+        }
+        return md;
+    }
+
+    private PrivateKey constructPriKey() {
         subPriKeyList.sort(Comparator.comparing(Pair::getKey));
         int len = subPriKeyList.stream().map(p -> p.getValue().length)
                 .reduce(0, Integer::sum);
@@ -103,7 +128,6 @@ class SignRequest {
             pos += subPriKey.getValue().length;
         }
         String priKeyString = new String(priKey);
-        PrivateKey privateKey = RSAUtil.getPrivateKey(priKeyString);
-        return privateKey;
+        return RSAUtil.getPrivateKey(priKeyString);
     }
 }
