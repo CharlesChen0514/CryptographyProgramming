@@ -4,7 +4,7 @@ import org.bitkernel.enigma.EnigmaMessage;
 import org.bitkernel.User;
 
 @Slf4j
-public class EnigmaReversibleTest {
+public class Scenario1EnigmaReversibleTest {
     public static void main(String[] args) {
         User alice = new User("alice");
         alice.generateEncryptedNumber("hellolll");

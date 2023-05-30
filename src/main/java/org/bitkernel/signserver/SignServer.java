@@ -3,15 +3,10 @@ package org.bitkernel.signserver;
 import com.sun.istack.internal.NotNull;
 import javafx.util.Pair;
 import lombok.extern.slf4j.Slf4j;
-import org.bitkernel.BlockChainSystem;
-import org.bitkernel.Letter;
 import org.bitkernel.StorageGateway;
 import org.bitkernel.rsa.RSAKeyPair;
 import org.bitkernel.rsa.RSAUtil;
 
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
-import java.security.PrivateKey;
 import java.security.PublicKey;
 import java.util.*;
 
@@ -46,8 +41,7 @@ public class SignServer {
     }
 
     public SignRequest authorized(@NotNull byte[] encryptReq,
-                                  @NotNull StorageGateway storageGateway,
-                                  @NotNull BlockChainSystem blockChainSystem) {
+                                  @NotNull StorageGateway storageGateway) {
         logger.debug("Sign server accept a cipher text: {}", encryptReq);
         byte[] decrypt = RSAUtil.decrypt(encryptReq, rsaKeyPair.getPrivateKey());
         String authorizedString = new String(decrypt);

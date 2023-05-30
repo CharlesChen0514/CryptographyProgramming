@@ -24,7 +24,7 @@ public class Scenario2ReliabilityTest extends Scenario1 {
 
         String authorizedString = String.format("%s-%s", bob.getName(), groupTag);
         encrypt = RSAUtil.encrypt(authorizedString.getBytes(), rsaPubKey);
-        SignRequest signReq = signServer.authorized(encrypt, storageGateway, blockChainSystem);
+        SignRequest signReq = signServer.authorized(encrypt, storageGateway);
         Letter letter = signReq.getLetter();
         blockChainSystem.acceptLetter(letter);
     }

@@ -12,6 +12,7 @@ public class Scenario2DataTamperTest extends Scenario1 {
         Scenario1.runTest();
         Scenario2DataTamperTest.runTest();
     }
+
     public static void runTest() {
         System.out.println();
         logger.debug("-----------------------Step 5: co-signature---------------------------------");
@@ -22,8 +23,9 @@ public class Scenario2DataTamperTest extends Scenario1 {
 
         String authorizedString = String.format("%s-%s", bob.getName(), groupTag);
         encrypt = RSAUtil.encrypt(authorizedString.getBytes(), rsaPubKey);
-        SignRequest signReq = signServer.authorized(encrypt, storageGateway, blockChainSystem);
+        SignRequest signReq = signServer.authorized(encrypt, storageGateway);
         Letter letter = signReq.getLetter();
+        // simulated data tampering
         letter.setMsg("nihao");
         blockChainSystem.acceptLetter(letter);
     }

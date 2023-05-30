@@ -24,6 +24,6 @@ public class Scenario2 extends Scenario1 {
 
         String authorizedString = String.format("%s-%s", bob.getName(), groupTag);
         encrypt = RSAUtil.encrypt(authorizedString.getBytes(), rsaPubKey);
-        signServer.authorized(encrypt, storageGateway, blockChainSystem);
+        signServer.authorized(encrypt, storageGateway);
     }
 }

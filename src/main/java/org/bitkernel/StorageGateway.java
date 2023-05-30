@@ -16,6 +16,7 @@ import java.security.PrivateKey;
 import java.security.PublicKey;
 import java.security.SecureRandom;
 import java.util.*;
+import java.util.stream.Collectors;
 
 @Slf4j
 public class StorageGateway {
@@ -40,9 +41,14 @@ public class StorageGateway {
     }
 
     public void randomDestroyProvider() {
-        int idx = new Random().nextInt(3);
-        storages[idx].setWork(false);
-        logger.debug("The {}th storage provider has been destroyed", idx);
+        while (true) {
+            int idx = new Random().nextInt(3);
+            if (storages[idx].isWork()) {
+                storages[idx].setWork(false);
+                logger.debug("The {}th storage provider has been destroyed", idx);
+                break;
+            }
+        }
     }
 
     /**
@@ -72,14 +78,7 @@ public class StorageGateway {
         String pubKeyEncodedBase64 = RSAUtil.getKeyEncodedBase64(pubKey);
         byte[] bytes = pubKeyEncodedBase64.getBytes();
         List<DataBlock> dataBlocks = generateDataBlocks(0, bytes);
-        for (int i = 0; i < storages.length; i++) {
-            if (!storages[i].isWork()) {
-                logger.error("Current storage provider is not working, failed to store public key data blocks");
-                return;
-            }
-            storages[i].putPubKeyBlock(groupTag, dataBlocks.get(i * 2));
-            storages[i].putPubKeyBlock(groupTag, dataBlocks.get(i * 2 + 1));
-        }
+        store(groupTag, dataBlocks);
         logger.debug("Successfully store the public key");
     }
 
@@ -88,15 +87,20 @@ public class StorageGateway {
                                 @NotNull String userName,
                                 @NotNull byte[] subPriKey) {
         List<DataBlock> dataBlocks = generateDataBlocks(keyId, subPriKey);
-        for (int i = 0; i < storages.length; i++) {
-            if (!storages[i].isWork()) {
-                logger.error("Current storage provider is not working, failed to store the sub-private key data blocks");
-                return;
-            }
-            storages[i].putPriKeyBlock(groupTag, userName, dataBlocks.get(i * 2));
-            storages[i].putPriKeyBlock(groupTag, userName, dataBlocks.get(i * 2 + 1));
-        }
+        store(groupTag, dataBlocks);
         logger.debug("\n[{}]'s sub-private key is {}", userName, new String(subPriKey));
+    }
+
+    private void store(@NotNull String groupTag, @NotNull List<DataBlock> dataBlocks) {
+        List<Storage> workingStorage = Arrays.stream(storages).filter(Storage::isWork)
+                .collect(Collectors.toList());
+        int perNum = dataBlocks.size() / workingStorage.size();
+        for (int i = 0; i < workingStorage.size(); i++) {
+            Storage storage = workingStorage.get(i);
+            for (int j = 0; j < perNum; j++) {
+                storage.putPubKeyBlock(groupTag, dataBlocks.get(i * perNum + j));
+            }
+        }
     }
 
     /**
@@ -224,11 +228,11 @@ public class StorageGateway {
 
         IRSErasureCorrection rsProcessor = new RSErasureCorrectionImpl();
         int result = rsProcessor.decoder(dataBytesWithCheck, len, SLICE_NUM, CHECK_NUM, eraserFlag);
-        if (result == 0) {
-            logger.debug("Data recover success");
-        } else {
-            logger.error("Data recover failed");
-        }
+//        if (result == 0) {
+//            logger.debug("Data recover success");
+//        } else {
+//            logger.error("Data recover failed");
+//        }
 
         List<DataBlock> dataBlocks = convertToBlockList(dataBytesWithCheck, 6);
         // remove check data blocks

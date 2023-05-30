@@ -28,13 +28,13 @@ public class User {
         this.name = name;
         this.encryptMachine = new Enigma();
 
-        Random random = new Random();
-        int idx1 = random.nextInt(26);
-        int idx2 = random.nextInt(26);
-        int idx3 = random.nextInt(26);
-        encryptMachine.setPos(idx1, idx2, idx3);
-        logger.debug(String.format("The initial position of user [%s's] enigma is set to [%d, %d, %d]",
-                name, idx1, idx2, idx3));
+//        Random random = new Random();
+//        int idx1 = random.nextInt(26);
+//        int idx2 = random.nextInt(26);
+//        int idx3 = random.nextInt(26);
+//        encryptMachine.setPos(idx1, idx2, idx3);
+//        logger.debug(String.format("The initial position of user [%s's] enigma is set to [%d, %d, %d]",
+//                name, idx1, idx2, idx3));
 
         byte[] rBytes = new byte[16];
         new SecureRandom().nextBytes(rBytes);
