@@ -51,6 +51,9 @@ public class StorageGateway {
         }
     }
 
+    /**
+     * Judge the recovered RSA key is correct or not
+     */
     public boolean checkRecover(@NotNull User[] group,
                                 @NotNull String groupTag,
                                 @NotNull RSAKeyPair rsAKeyPair) {
@@ -211,11 +214,14 @@ public class StorageGateway {
         return dataBlocks;
     }
 
+    /**
+     * @param dataBlocks data block list
+     * @return combination of data in data block list
+     */
     @NotNull
     private byte[] combine(@NotNull List<DataBlock> dataBlocks) {
         int totalLen = dataBlocks.get(0).getBytes().length;
         byte[] fullData = new byte[totalLen * dataBlocks.size()];
-//        dataBlocks.sort(Comparator.comparing(DataBlock::getBlockId));
         for (int i = 0; i < dataBlocks.size(); i++) {
             DataBlock dataBlock = dataBlocks.get(i);
             System.arraycopy(dataBlock.getBytes(), 0,
@@ -308,14 +314,9 @@ public class StorageGateway {
             }
             System.arraycopy(block.getBytes(), 0, dataBytesWithCheck, i * len, len);
         }
-
+        // ensure the services can guarantee even a storage provider is broken
         IRSErasureCorrection rsProcessor = new RSErasureCorrectionImpl();
         int result = rsProcessor.decoder(dataBytesWithCheck, len, SLICE_NUM, CHECK_NUM, eraserFlag);
-//        if (result == 0) {
-//            logger.debug("Data recover success");
-//        } else {
-//            logger.error("Data recover failed");
-//        }
 
         List<DataBlock> dataBlocks = convertToBlockList(dataBytesWithCheck, 6);
         // remove check data blocks

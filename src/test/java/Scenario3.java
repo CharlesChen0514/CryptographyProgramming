@@ -24,7 +24,7 @@ public class Scenario3 extends Scenario1 {
 
         System.out.print("Alice, please input the key: ");
         String aliceKey = in.next();
-//        String aliceKey = "abcdefge";
+//        String aliceKey = "abcdefgh";
 
         System.out.print("Bob, please input the key: ");
         String bobKey = in.next();
