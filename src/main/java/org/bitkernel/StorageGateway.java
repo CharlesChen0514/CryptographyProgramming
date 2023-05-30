@@ -51,6 +51,35 @@ public class StorageGateway {
         }
     }
 
+    public void recover(@NotNull User[] group,
+                        @NotNull String groupTag,
+                        @NotNull RSAKeyPair rsAKeyPair) {
+        recoverPubKey(groupTag, rsAKeyPair.getPublicKey());
+    }
+
+    private void recoverPriKey() {
+
+    }
+
+    private void recoverPubKey(@NotNull String groupTag,
+                              @NotNull PublicKey pubKey) {
+        List<Storage> workingStorages = getWorkingStorages();
+        List<DataBlock> remainBlocks = workingStorages.stream().map(s -> s.getPubKeyBlock(groupTag))
+                .flatMap(Collection::stream).collect(Collectors.toList());
+        byte[] slice = parse(remainBlocks);
+        String sliceStr = new String(slice);
+
+        String pubKeyEncodedBase64 = RSAUtil.getKeyEncodedBase64(pubKey);
+        byte[] bytes = pubKeyEncodedBase64.getBytes();
+        String pubKeyStr = new String(bytes);;
+        if (pubKeyStr.contains(sliceStr)) {
+            logger.debug("The public key recover successfully");
+            storePubKey(groupTag, pubKey);
+        } else {
+            logger.error("The public key recover failed");
+        }
+    }
+
     /**
      * store the public key and private key
      */
@@ -78,7 +107,7 @@ public class StorageGateway {
         String pubKeyEncodedBase64 = RSAUtil.getKeyEncodedBase64(pubKey);
         byte[] bytes = pubKeyEncodedBase64.getBytes();
         List<DataBlock> dataBlocks = generateDataBlocks(0, bytes);
-        store(groupTag, dataBlocks);
+        storePubKeyBlock(groupTag, dataBlocks);
         logger.debug("Successfully store the public key");
     }
 
@@ -87,20 +116,37 @@ public class StorageGateway {
                                 @NotNull String userName,
                                 @NotNull byte[] subPriKey) {
         List<DataBlock> dataBlocks = generateDataBlocks(keyId, subPriKey);
-        store(groupTag, dataBlocks);
+        storePriKeyBlock(groupTag, userName, dataBlocks);
         logger.debug("\n[{}]'s sub-private key is {}", userName, new String(subPriKey));
     }
 
-    private void store(@NotNull String groupTag, @NotNull List<DataBlock> dataBlocks) {
-        List<Storage> workingStorage = Arrays.stream(storages).filter(Storage::isWork)
-                .collect(Collectors.toList());
-        int perNum = dataBlocks.size() / workingStorage.size();
-        for (int i = 0; i < workingStorage.size(); i++) {
-            Storage storage = workingStorage.get(i);
+    private void storePriKeyBlock(@NotNull String groupTag, @NotNull String userName,
+                                  @NotNull List<DataBlock> dataBlocks) {
+        List<Storage> workingStorages = getWorkingStorages();
+        int perNum = dataBlocks.size() / workingStorages.size();
+        for (int i = 0; i < workingStorages.size(); i++) {
+            Storage storage = workingStorages.get(i);
+            for (int j = 0; j < perNum; j++) {
+                storage.putPriKeyBlock(groupTag, userName, dataBlocks.get(i * perNum + j));
+            }
+        }
+    }
+
+    private void storePubKeyBlock(@NotNull String groupTag, @NotNull List<DataBlock> dataBlocks) {
+        List<Storage> workingStorages = getWorkingStorages();
+        int perNum = dataBlocks.size() / workingStorages.size();
+        for (int i = 0; i < workingStorages.size(); i++) {
+            Storage storage = workingStorages.get(i);
             for (int j = 0; j < perNum; j++) {
                 storage.putPubKeyBlock(groupTag, dataBlocks.get(i * perNum + j));
             }
         }
+    }
+
+    @NotNull
+    private List<Storage> getWorkingStorages() {
+        return Arrays.stream(storages).filter(Storage::isWork)
+                .collect(Collectors.toList());
     }
 
     /**
@@ -180,7 +226,7 @@ public class StorageGateway {
             dataBlocks[i * 2] = blocks.get(0);
             dataBlocks[i * 2 + 1] = blocks.get(1);
         }
-        byte[] bytes = recoverData(dataBlocks);
+        byte[] bytes = reedSolomonCheck(dataBlocks);
         return RSAUtil.getPublicKey(new String(bytes));
     }
 
@@ -200,7 +246,7 @@ public class StorageGateway {
         }
         int belongKeyId = Arrays.stream(dataBlocks).filter(Objects::nonNull)
                 .findFirst().get().getBelongKeyId();
-        return new Pair<>(belongKeyId, recoverData(dataBlocks));
+        return new Pair<>(belongKeyId, reedSolomonCheck(dataBlocks));
     }
 
     /**
@@ -211,7 +257,7 @@ public class StorageGateway {
      * @return origin data
      */
     @NotNull
-    private byte[] recoverData(@NotNull DataBlock[] blocks) {
+    private byte[] reedSolomonCheck(@NotNull DataBlock[] blocks) {
         int len = Arrays.stream(blocks).filter(Objects::nonNull)
                 .map(d -> d.getBytes().length).reduce(0, Integer::max);
         byte[] dataBytesWithCheck = new byte[len * TOTAL_BLOCK_NUM];
