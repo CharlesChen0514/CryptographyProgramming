@@ -306,6 +306,7 @@ public class StorageGateway {
         byte[] dataBytesWithCheck = new byte[len * TOTAL_BLOCK_NUM];
         boolean[] eraserFlag = new boolean[TOTAL_BLOCK_NUM];
         Arrays.fill(eraserFlag, true);
+
         for (int i = 0; i < TOTAL_BLOCK_NUM; i++) {
             DataBlock block = blocks[i];
             if (block == null) {
@@ -314,11 +315,12 @@ public class StorageGateway {
             }
             System.arraycopy(block.getBytes(), 0, dataBytesWithCheck, i * len, len);
         }
+
         // ensure the services can guarantee even a storage provider is broken
         IRSErasureCorrection rsProcessor = new RSErasureCorrectionImpl();
-        int result = rsProcessor.decoder(dataBytesWithCheck, len, SLICE_NUM, CHECK_NUM, eraserFlag);
-
+        int code = rsProcessor.decoder(dataBytesWithCheck, len, SLICE_NUM, CHECK_NUM, eraserFlag);
         List<DataBlock> dataBlocks = convertToBlockList(dataBytesWithCheck, 6);
+
         // remove check data blocks
         dataBlocks.remove(dataBlocks.size() - 1);
         dataBlocks.remove(dataBlocks.size() - 1);

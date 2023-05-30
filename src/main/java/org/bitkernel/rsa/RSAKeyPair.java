@@ -19,6 +19,7 @@ public class RSAKeyPair {
     private PublicKey publicKey;
     @Getter
     private PrivateKey privateKey;
+
     public RSAKeyPair(@NotNull BigInteger p, @NotNull BigInteger q) {
         generateKeyPair(p, q);
     }
@@ -75,7 +76,7 @@ public class RSAKeyPair {
             System.out.println("The recover public key is equal");
         }
 
-        String priKeyEncodedBase64 = RSAUtil.getKeyEncodedBase64(rsAKeyPair.getPrivateKey());;
+        String priKeyEncodedBase64 = RSAUtil.getKeyEncodedBase64(rsAKeyPair.getPrivateKey());
         PrivateKey priKey = RSAUtil.getPrivateKey(priKeyEncodedBase64);
         if (priKey.toString().equals(rsAKeyPair.getPrivateKey().toString())) {
             System.out.println("The recover private key is equal");
