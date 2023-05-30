@@ -26,7 +26,9 @@ public class Scenario2DataTamperTest extends Scenario1 {
         SignRequest signReq = signServer.authorized(encrypt, storageGateway);
         Letter letter = signReq.getLetter();
         // simulated data tampering
-        letter.setMsg("nihao");
+        String msgTamper = "nihao";
+        logger.error("The letter message [{}] is tamper to [{}]", letter.getMsg(), msgTamper);
+        letter.setMsg(msgTamper);
         blockChainSystem.acceptLetter(letter);
     }
 }
