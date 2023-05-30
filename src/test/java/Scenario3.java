@@ -24,9 +24,11 @@ public class Scenario3 extends Scenario1 {
 
         System.out.print("Alice, please input the key: ");
         String aliceKey = in.next();
+//        String aliceKey = "abcdefge";
 
         System.out.print("Bob, please input the key: ");
         String bobKey = in.next();
+//        String bobKey = "ijklmnop";
 
         User alice1 = new User("alice");
         User bob1 = new User("bob");
@@ -55,6 +57,12 @@ public class Scenario3 extends Scenario1 {
 
         System.out.println();
         logger.debug("-----------------------Step 4: data recovering----------------------------");
-        storageGateway.recover(group1, groupTag, keyPair);
+        boolean check = storageGateway.checkRecover(group1, groupTag, keyPair);
+        if (check) {
+            storageGateway.store(group1, groupTag, keyPair);
+            logger.debug("RSA key recover success");
+        } else {
+            logger.error("RSA key recover failed");
+        }
     }
 }

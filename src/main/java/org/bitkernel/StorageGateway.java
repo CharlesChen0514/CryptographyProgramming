@@ -51,32 +51,62 @@ public class StorageGateway {
         }
     }
 
-    public void recover(@NotNull User[] group,
-                        @NotNull String groupTag,
-                        @NotNull RSAKeyPair rsAKeyPair) {
-        recoverPubKey(groupTag, rsAKeyPair.getPublicKey());
+    public boolean checkRecover(@NotNull User[] group,
+                                @NotNull String groupTag,
+                                @NotNull RSAKeyPair rsAKeyPair) {
+        boolean flag = checkRecoverPriKey(group, groupTag, rsAKeyPair.getPrivateKey());
+        if (flag) {
+            flag = checkRecoverPubKey(groupTag, rsAKeyPair.getPublicKey());
+        }
+        return flag;
     }
 
-    private void recoverPriKey() {
+    private boolean checkRecoverPriKey(@NotNull User[] group,
+                                       @NotNull String groupTag,
+                                       @NotNull PrivateKey privateKey) {
+        List<byte[]> subPriKeys = getPriKeySlicing(privateKey, group.length);
+        List<Storage> workingStorages = getWorkingStorages();
+        boolean res = true;
 
+        for (int i = 0; i < group.length; i++) {
+            String userName = group[i].getName();
+            List<DataBlock> remainBlocks = workingStorages.stream()
+                    .map(s -> s.getPriKeyDataBlocks(groupTag, userName))
+                    .flatMap(Collection::stream).collect(Collectors.toList());
+            String sliceStr = new String(combine(remainBlocks));
+
+            List<DataBlock> dataBlocks = generateDataBlocks(i, subPriKeys.get(i));
+            String subKeyStr = new String(combine(dataBlocks));
+            if (subKeyStr.contains(sliceStr)) {
+                logger.debug("The {}th sub-private key recover successfully", i);
+            } else {
+                logger.error("The {}th sub-private key recover failed", i);
+                res = false;
+            }
+        }
+        return res;
     }
 
-    private void recoverPubKey(@NotNull String groupTag,
-                              @NotNull PublicKey pubKey) {
+    private boolean checkRecoverPubKey(@NotNull String groupTag,
+                                       @NotNull PublicKey pubKey) {
+        // get the remaining data block string
         List<Storage> workingStorages = getWorkingStorages();
         List<DataBlock> remainBlocks = workingStorages.stream().map(s -> s.getPubKeyBlock(groupTag))
                 .flatMap(Collection::stream).collect(Collectors.toList());
-        byte[] slice = parse(remainBlocks);
-        String sliceStr = new String(slice);
+        String sliceStr = new String(combine(remainBlocks));
 
-        String pubKeyEncodedBase64 = RSAUtil.getKeyEncodedBase64(pubKey);
-        byte[] bytes = pubKeyEncodedBase64.getBytes();
-        String pubKeyStr = new String(bytes);;
+        // get the all data blocks string combination of public key
+        byte[] bytes = RSAUtil.getKeyEncodedBase64(pubKey).getBytes();
+        List<DataBlock> dataBlocks = generateDataBlocks(0, bytes);
+        String pubKeyStr = new String(combine(dataBlocks));
+
+        // judge contains or not
         if (pubKeyStr.contains(sliceStr)) {
             logger.debug("The public key recover successfully");
-            storePubKey(groupTag, pubKey);
+            return true;
         } else {
             logger.error("The public key recover failed");
+            return false;
         }
     }
 
@@ -90,7 +120,14 @@ public class StorageGateway {
         publicKeyMap.put(groupTag, rsAKeyPair.getPublicKey());
         privateKeyMap.put(groupTag, rsAKeyPair.getPrivateKey());
 
-        List<byte[]> subPriKey = getPriKeySlicing(rsAKeyPair.getPrivateKey(), group.length);
+        storePriKey(group, groupTag, rsAKeyPair.getPrivateKey());
+        storePubKey(groupTag, rsAKeyPair.getPublicKey());
+    }
+
+    private void storePriKey(@NotNull User[] group,
+                             @NotNull String groupTag,
+                             @NotNull PrivateKey privateKey) {
+        List<byte[]> subPriKey = getPriKeySlicing(privateKey, group.length);
         for (int i = 0; i < subPriKey.size(); i++) {
             String userName = group[i].getName();
             // use as a check
@@ -99,10 +136,9 @@ public class StorageGateway {
             // actual storage action
             storeSubPriKey(i, groupTag, userName, subPriKey.get(i));
         }
-        storePubKey(groupTag, rsAKeyPair.getPublicKey());
     }
 
-    public void storePubKey(@NotNull String groupTag,
+    private void storePubKey(@NotNull String groupTag,
                             @NotNull PublicKey pubKey) {
         String pubKeyEncodedBase64 = RSAUtil.getKeyEncodedBase64(pubKey);
         byte[] bytes = pubKeyEncodedBase64.getBytes();
@@ -157,7 +193,7 @@ public class StorageGateway {
     @NotNull
     private List<DataBlock> generateDataBlocks(int subKeyId, @NotNull byte[] subPriKey) {
         List<DataBlock> dataBlocks = slice(subKeyId, subPriKey, 4);
-        byte[] combine = combine(dataBlocks, dataBlocks.size());
+        byte[] combine = combine(dataBlocks);
         IRSErasureCorrection rsProcessor = new RSErasureCorrectionImpl();
         byte[] dataWithChecksum = rsProcessor.encoder(combine, dataBlocks.get(0).getBytes().length, 4, 2);
         return convertToBlockList(dataWithChecksum, 6);
@@ -176,13 +212,14 @@ public class StorageGateway {
     }
 
     @NotNull
-    private byte[] combine(@NotNull List<DataBlock> dataBlocks, int num) {
+    private byte[] combine(@NotNull List<DataBlock> dataBlocks) {
         int totalLen = dataBlocks.get(0).getBytes().length;
-        byte[] fullData = new byte[totalLen * num];
-        dataBlocks.sort(Comparator.comparing(DataBlock::getBlockId));
-        for (DataBlock dataBlock: dataBlocks) {
+        byte[] fullData = new byte[totalLen * dataBlocks.size()];
+//        dataBlocks.sort(Comparator.comparing(DataBlock::getBlockId));
+        for (int i = 0; i < dataBlocks.size(); i++) {
+            DataBlock dataBlock = dataBlocks.get(i);
             System.arraycopy(dataBlock.getBytes(), 0,
-                    fullData, dataBlock.getBlockId() * totalLen, totalLen);
+                    fullData, i * totalLen, totalLen);
         }
         return fullData;
     }
