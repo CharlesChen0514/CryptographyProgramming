@@ -41,13 +41,13 @@ public class Scenario1 {
 
         System.out.println();
         logger.debug("-----------------------Step 3: generate RSA keys----------------------------");
-        groupTag = mpcMain.generateGroupTag(group);
         RSAKeyPair keyPair = mpcMain.generateRSAKeyPair(sumD1, sumD2);
         logger.debug("\nThe public key is {}", RSAUtil.getKeyEncodedBase64(keyPair.getPublicKey()));
         logger.debug("\nThe private key is {}", RSAUtil.getKeyEncodedBase64(keyPair.getPrivateKey()));
 
         System.out.println();
         logger.debug("-----------------------Step 4: reliable storage-----------------------------");
+        groupTag = mpcMain.generateGroupTag(group);
         storageGateway.store(group, groupTag, keyPair);
     }
 

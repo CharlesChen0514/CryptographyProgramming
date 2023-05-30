@@ -50,13 +50,13 @@ public class Scenario3 extends Scenario1 {
 
         System.out.println();
         logger.debug("-----------------------Step 3: generate RSA keys----------------------------");
-        String groupTag = mpcMain.generateGroupTag(group1);
         RSAKeyPair keyPair = mpcMain.generateRSAKeyPair(sumD1, sumD2);
         logger.debug("\nThe public key is {}", RSAUtil.getKeyEncodedBase64(keyPair.getPublicKey()));
         logger.debug("\nThe private key is {}", RSAUtil.getKeyEncodedBase64(keyPair.getPrivateKey()));
 
         System.out.println();
         logger.debug("-----------------------Step 4: data recovering----------------------------");
+        String groupTag = mpcMain.generateGroupTag(group1);
         boolean check = storageGateway.checkRecover(group1, groupTag, keyPair);
         if (check) {
             storageGateway.store(group1, groupTag, keyPair);
