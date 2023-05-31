@@ -46,7 +46,7 @@ Main->Main:D1=sum(d1), D2=sum(d2)
 
 ```mermaid
 graph TD
-A(输入 1024 位的 D1 和 D2)-->B[通过 GNU 多精度运算库 GMP 找到 P, Q]
+A(输入 1024 位的 D1 和 D2)-->B[通过 Miller-Rabin 素性测试找到 P, Q]
 B-->C[计算 n = P * Q]
 C-->D[计算 n 的欧拉函数 φ]
 D-->E[选择整数 e = 65537]
@@ -116,5 +116,22 @@ Sign Server->BlockChainSystem:传递信件：信息 + 签名 + 公钥信息
 BlockChainSystem->BlockChainSystem:通过公钥解密签名获得哈希值1
 BlockChainSystem->BlockChainSystem:通过 SHA256 对信息生成数字摘要哈希值2
 BlockChainSystem->BlockChainSystem:比对哈希值1和哈希值2是否相等，相等则信息未被串改
+```
+
+
+
+## 密钥恢复
+
+```sequence
+Title:密钥恢复
+Users->Users:输入 key，获得 sumD1 和 sumD2
+Users->Main:传递 sumD1 和 sumD2
+Main->Main:重新生成公私钥
+Main->StorageGateway:传递恢复的公私钥
+StorageGateway->StorageGateway:检查私钥恢复是否正确，判断剩余数据是否能查找到匹配片段
+StorageGateway->StorageGateway:检查公钥恢复是否正确，判断剩余数据是否能查找到匹配片段
+StorageGateway-->Main:检查结果
+Main->StorageGateway:恢复成功
+StorageGateway->StorageGateway:存储公私钥
 ```
 

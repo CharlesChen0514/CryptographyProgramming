@@ -62,7 +62,7 @@ public class Scenario3 extends Scenario1 {
             storageGateway.store(group1, groupTag, keyPair);
             logger.debug("RSA key recover success");
         } else {
-            logger.error("RSA key recover failed");
+            logger.error("RSA key recover failed, please insure the key is correct");
         }
     }
 }

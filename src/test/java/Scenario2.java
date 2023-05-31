@@ -1,5 +1,7 @@
 import lombok.extern.slf4j.Slf4j;
+import org.bitkernel.Letter;
 import org.bitkernel.rsa.RSAUtil;
+import org.bitkernel.signserver.SignRequest;
 
 import java.security.PublicKey;
 
@@ -24,6 +26,8 @@ public class Scenario2 extends Scenario1 {
 
         String authorizedString = String.format("%s-%s", bob.getName(), groupTag);
         encrypt = RSAUtil.encrypt(authorizedString.getBytes(), rsaPubKey);
-        signServer.authorized(encrypt, storageGateway);
+        SignRequest signReq = signServer.authorized(encrypt, storageGateway);
+        Letter letter = signReq.getLetter();
+        blockChainSystem.acceptLetter(letter);
     }
 }
