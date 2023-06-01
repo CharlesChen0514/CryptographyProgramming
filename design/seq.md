@@ -101,10 +101,14 @@ E-->G(存储结束)
 
 ```sequence
 Title:共同签名，自动验证签名
-Sign Server->Sign Server:生成 RSA 公私钥对
+User->User:生成 AES 对称加密密钥
 User->Sign Server:获取公钥
+Sign Server->Sign Server:生成 RSA 公私钥对
 Sign Server-->User:返回公钥
-User->User:通过公钥加密签名信息 M，包括用户名、组标识和信息，得到 EM
+User->User:通过公钥加密对称密钥
+User->Sign Server:注册，传递加密的对称密钥
+Sign Server->Sign Server:通过私钥解密获得对称密钥
+User->User:通过对称密钥加密签名信息 M，包括用户名、组标识和信息，得到 EM
 User->Sign Server:传递 EM
 Sign Server->Sign Server:通过私钥解密 EM 获得 M
 Sign Server->StorageGateway:获取对应的私钥碎片
