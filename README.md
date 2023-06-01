@@ -112,6 +112,7 @@ CEsrjtRxK47kogyP83AMkAsz+NwHI/jcJcIeWeGmHloHtUVOurFFTuf3HjLhzR4zFr6G2Xkmhtm0
 cAeP+HAXY7lURqu5V0ECAQACAQACAQACAQACAQA=
 ```
 
+
 ### 第四步：可靠存储
 
 ![](figs/reliableStoreTestImg.png)
