@@ -33,6 +33,10 @@ public class User {
         this.name = name;
         this.encryptMachine = new Enigma();
         this.secretKey = AESUtil.generateKey();
+        // According to the name to set the enigma initial position
+        BigInteger num = new BigInteger(name.getBytes());
+        int pos = num.mod(BigInteger.valueOf(26)).intValue();
+        encryptMachine.setPos(pos, (pos * 2 + 1) % 26, (pos * 3 + 2) % 26);
 
         byte[] rBytes = new byte[16];
         new SecureRandom().nextBytes(rBytes);
