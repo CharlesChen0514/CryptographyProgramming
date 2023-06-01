@@ -3,6 +3,7 @@
 ```sequence
 Title: 用户生成大小数 d1 和 d2
 用户->Enigma:8 位密钥 key
+Note right of Enigma:初始位置通过用户名称设定（随机而确定）
 Enigma->Enigma:基于 key 加密一次生成 strD1
 Enigma->Enigma:基于 key 加密一次生成 strD2
 Enigma-->用户:基于 strD1 和 strD2 转换成大小数 d1 和 d2
