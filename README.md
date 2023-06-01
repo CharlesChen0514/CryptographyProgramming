@@ -93,10 +93,11 @@
 
 ### 第三步：生成公钥和私钥
 
+首先展示了 sumD1 和 sumD2 扩展到 1024 位的结果，然后输出了找到 P 和 Q 的值
 
 ![](figs/generateRSAkeysTestImg.png)
 
-首先展示了 sumD1 和 sumD2 扩展到 1024 位的结果，然后输出了找到 P 和 Q 的值，该场景下生成对应的公钥和私钥如下
+该场景下生成对应的公钥和私钥如下
 
 ```java
 MIGfMA0GCSqGSIb3DQEBAQUAA4GNADCBiQKBgQDK9wAAAAAAAYw7AAAAAAACRZgAAAAAAALtSgAA
