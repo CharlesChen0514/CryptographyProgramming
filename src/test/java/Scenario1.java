@@ -1,8 +1,8 @@
 import com.sun.istack.internal.NotNull;
 import lombok.extern.slf4j.Slf4j;
 import org.bitkernel.*;
-import org.bitkernel.rsa.RSAKeyPair;
-import org.bitkernel.rsa.RSAUtil;
+import org.bitkernel.cryptography.RSAKeyPair;
+import org.bitkernel.cryptography.RSAUtil;
 import org.bitkernel.signserver.SignServer;
 
 import java.math.BigInteger;

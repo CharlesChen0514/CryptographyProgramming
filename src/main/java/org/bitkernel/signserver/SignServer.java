@@ -4,9 +4,12 @@ import com.sun.istack.internal.NotNull;
 import javafx.util.Pair;
 import lombok.extern.slf4j.Slf4j;
 import org.bitkernel.StorageGateway;
-import org.bitkernel.rsa.RSAKeyPair;
-import org.bitkernel.rsa.RSAUtil;
+import org.bitkernel.cryptography.AESUtil;
+import org.bitkernel.cryptography.RSAKeyPair;
+import org.bitkernel.cryptography.RSAUtil;
 
+import javax.crypto.SecretKey;
+import javax.crypto.spec.SecretKeySpec;
 import java.security.PublicKey;
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -15,46 +18,78 @@ import java.util.Map;
 public class SignServer {
     private final RSAKeyPair rsaKeyPair = new RSAKeyPair();
     private final Map<String, SignRequest> signRequestMap = new LinkedHashMap<>();
+    /** user name -> symmetric key */
+    private final Map<String, SecretKey> secretKeyMap = new LinkedHashMap<>();
 
     @NotNull
     public PublicKey getRSAPubKey() {
         return rsaKeyPair.getPublicKey();
     }
 
-    public void newSignRequest(@NotNull byte[] encryptReq,
+    /**
+     * Exchange of symmetric key via asymmetric encryption
+     * @param source user name
+     * @param encryptedSecretKey encrypted symmetric key via RSA public key
+     */
+    public void register(@NotNull String source,
+                         @NotNull byte[] encryptedSecretKey) {
+        byte[] decrypt = RSAUtil.decrypt(encryptedSecretKey, rsaKeyPair.getPrivateKey());
+        SecretKey secretKey = new SecretKeySpec(decrypt, "AES");
+        secretKeyMap.put(source, secretKey);
+        logger.debug("[{}] register secret key: {}", source, secretKey.getEncoded());
+    }
+
+    /**
+     * Initiates a signature request
+     * @param source user name
+     * @param encryptReq encrypted signature request message via ASE key
+     */
+    public void newSignRequest(@NotNull String source, @NotNull byte[] encryptReq,
                                @NotNull StorageGateway storageGateway) {
         logger.debug("Sign server accept a cipher text: {}", encryptReq);
-        byte[] decrypt = RSAUtil.decrypt(encryptReq, rsaKeyPair.getPrivateKey());
+        if (!secretKeyMap.containsKey(source)) {
+            logger.error("Secret key not found, please register first");
+            return;
+        }
+        SecretKey secretKey = secretKeyMap.get(source);
+        byte[] decrypt = AESUtil.decrypt(encryptReq, secretKey);
         String signReqString = new String(decrypt);
         String[] split = signReqString.split("-");
 
-        String userName = split[0].trim();
-        String groupTag = split[1].trim();
-        String msg = split[2].trim();
-        logger.debug("[{}] initiates a signature request with message [{}]", userName, msg);
+        String groupTag = split[0].trim();
+        String msg = split[1].trim();
+        logger.debug("[{}] initiates a signature request with message [{}]", source, msg);
 
-        Pair<Integer, byte[]> subPriKey = storageGateway.getSubPriKey(userName, groupTag);
+        Pair<Integer, byte[]> subPriKey = storageGateway.getSubPriKey(source, groupTag);
         PublicKey pubKey = storageGateway.getPubKey(groupTag);
         int groupMemberNum = Integer.parseInt(groupTag.substring(0, 1));
-        SignRequest signRequest = new SignRequest(userName, groupTag, msg,
+        SignRequest signRequest = new SignRequest(source, groupTag, msg,
                 groupMemberNum, subPriKey, pubKey);
         signRequestMap.put(groupTag, signRequest);
     }
 
-    public SignRequest authorized(@NotNull byte[] encryptReq,
+    /**
+     * Authorized a signature request
+     * @param source user name
+     * @param encryptReq encrypted authorized request message via ASE key
+     * @return If the authorized user meet the requirement, return the
+     * SignRequest Object, otherwise return null
+     */
+    public SignRequest authorized(@NotNull String source, @NotNull byte[] encryptReq,
                                   @NotNull StorageGateway storageGateway) {
         logger.debug("Sign server accept a cipher text: {}", encryptReq);
-        byte[] decrypt = RSAUtil.decrypt(encryptReq, rsaKeyPair.getPrivateKey());
-        String authorizedString = new String(decrypt);
-        String[] split = authorizedString.split("-");
+        if (!secretKeyMap.containsKey(source)) {
+            logger.error("Secret key not found, please register first");
+            return null;
+        }
+        SecretKey secretKey = secretKeyMap.get(source);
+        byte[] decrypt = AESUtil.decrypt(encryptReq, secretKey);
+        String groupTag = new String(decrypt);
 
-        String userName = split[0].trim();
-        String groupTag = split[1].trim();
-
-        Pair<Integer, byte[]> subPriKey = storageGateway.getSubPriKey(userName, groupTag);
+        Pair<Integer, byte[]> subPriKey = storageGateway.getSubPriKey(source, groupTag);
         SignRequest signRequest = signRequestMap.get(groupTag);
-        signRequest.addSubPriKey(userName, subPriKey);
-        logger.debug("[{}] authorized the signature request", userName);
+        signRequest.addSubPriKey(source, subPriKey);
+        logger.debug("[{}] authorized the signature request", source);
 
         if (signRequest.isFullyAuthorized()) {
             logger.debug("All users has authorized the sign request");

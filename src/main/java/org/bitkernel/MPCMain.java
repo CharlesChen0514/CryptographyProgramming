@@ -2,7 +2,7 @@ package org.bitkernel;
 
 import com.sun.istack.internal.NotNull;
 import lombok.extern.slf4j.Slf4j;
-import org.bitkernel.rsa.RSAKeyPair;
+import org.bitkernel.cryptography.RSAKeyPair;
 
 import java.math.BigInteger;
 import java.security.*;

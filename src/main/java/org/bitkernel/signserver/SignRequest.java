@@ -4,7 +4,7 @@ import com.sun.istack.internal.NotNull;
 import javafx.util.Pair;
 import lombok.extern.slf4j.Slf4j;
 import org.bitkernel.Letter;
-import org.bitkernel.rsa.RSAUtil;
+import org.bitkernel.cryptography.RSAUtil;
 
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;

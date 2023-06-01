@@ -8,8 +8,8 @@ import lombok.Setter;
 import lombok.extern.slf4j.Slf4j;
 import org.bitkernel.reedsolomon.robinliew.dealbytesinterface.IRSErasureCorrection;
 import org.bitkernel.reedsolomon.robinliew.dealbytesinterface.RSErasureCorrectionImpl;
-import org.bitkernel.rsa.RSAKeyPair;
-import org.bitkernel.rsa.RSAUtil;
+import org.bitkernel.cryptography.RSAKeyPair;
+import org.bitkernel.cryptography.RSAUtil;
 
 import java.nio.ByteBuffer;
 import java.security.PrivateKey;

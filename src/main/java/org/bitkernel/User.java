@@ -3,10 +3,14 @@ package org.bitkernel;
 import com.sun.istack.internal.NotNull;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
+import org.bitkernel.cryptography.AESUtil;
 import org.bitkernel.enigma.Enigma;
 import org.bitkernel.enigma.EnigmaMessage;
+import org.bitkernel.cryptography.RSAUtil;
 
+import javax.crypto.*;
 import java.math.BigInteger;
+import java.security.PublicKey;
 import java.security.SecureRandom;
 
 @Slf4j
@@ -14,7 +18,7 @@ public class User {
     @Getter
     private final String name;
     private final Enigma encryptMachine;
-    private String key;
+    private String rootKey;
     @Getter
     private EnigmaMessage d1;
     @Getter
@@ -22,10 +26,13 @@ public class User {
     /** 128-bit random bit integer "R" */
     @Getter
     private final BigInteger r;
+    /** Symmetric Key */
+    private final SecretKey secretKey;
 
     public User(@NotNull String name) {
         this.name = name;
         this.encryptMachine = new Enigma();
+        this.secretKey = AESUtil.generateKey();
 
         byte[] rBytes = new byte[16];
         new SecureRandom().nextBytes(rBytes);
@@ -34,11 +41,38 @@ public class User {
     }
 
     /**
+     * @param publicKey RSA public key
+     * @return encrypted symmetric key
+     */
+    public byte[] getSecretKey(@NotNull PublicKey publicKey) {
+        return RSAUtil.encrypt(secretKey.getEncoded(), publicKey);
+    }
+
+    /**
+     * Encrypted messages via symmetric encryption
+     * @return encrypted sign request
+     */
+    @NotNull
+    public byte[] generateSignReq(@NotNull String groupTag, @NotNull String msg) {
+        String signReqString = String.format("%s-%s", groupTag, msg);
+        return AESUtil.encrypt(signReqString.getBytes(), secretKey);
+    }
+
+    /**
+     * Encrypted messages via symmetric encryption
+     * @return encrypted authorized request
+     */
+    @NotNull
+    public byte[] generateAuthorizedReq(@NotNull String groupTag) {
+        return AESUtil.encrypt(groupTag.getBytes(), secretKey);
+    }
+
+    /**
      * According to the key to generate the d1 and d2 number
      * @param key the root key input by the user
      */
     public void generateEncryptedNumber(@NotNull String key) {
-        this.key = key;
+        this.rootKey = key;
         d1 = encryptMachine.encode(key);
         d2 = encryptMachine.encode(key);
         logger.debug(String.format("[%s's] key is [%s], d1 string is [%s], d2 string is [%s]",

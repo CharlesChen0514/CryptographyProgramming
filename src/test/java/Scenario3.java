@@ -1,7 +1,7 @@
 import lombok.extern.slf4j.Slf4j;
 import org.bitkernel.User;
-import org.bitkernel.rsa.RSAKeyPair;
-import org.bitkernel.rsa.RSAUtil;
+import org.bitkernel.cryptography.RSAKeyPair;
+import org.bitkernel.cryptography.RSAUtil;
 
 import java.math.BigInteger;
 import java.util.List;

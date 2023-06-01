@@ -1,6 +1,5 @@
 import lombok.extern.slf4j.Slf4j;
 import org.bitkernel.Letter;
-import org.bitkernel.rsa.RSAUtil;
 import org.bitkernel.signserver.SignRequest;
 
 import java.security.PublicKey;
@@ -18,13 +17,12 @@ public class Scenario2ReliabilityTest extends Scenario1 {
         logger.debug("-----------------------Step 5: co-signature---------------------------------");
         storageGateway.randomDestroyProvider();
         PublicKey rsaPubKey = signServer.getRSAPubKey();
-        String signReqString = String.format("%s-%s-%s", alice.getName(), groupTag, "hello");
-        byte[] encrypt = RSAUtil.encrypt(signReqString.getBytes(), rsaPubKey);
-        signServer.newSignRequest(encrypt, storageGateway);
+        signServer.register(alice.getName(), alice.getSecretKey(rsaPubKey));
+        signServer.register(bob.getName(), bob.getSecretKey(rsaPubKey));
 
-        String authorizedString = String.format("%s-%s", bob.getName(), groupTag);
-        encrypt = RSAUtil.encrypt(authorizedString.getBytes(), rsaPubKey);
-        SignRequest signReq = signServer.authorized(encrypt, storageGateway);
+        signServer.newSignRequest(alice.getName(), alice.generateSignReq(groupTag, "hello"), storageGateway);
+        SignRequest signReq = signServer.authorized(bob.getName(), bob.generateAuthorizedReq(groupTag), storageGateway);
+
         Letter letter = signReq.getLetter();
         blockChainSystem.acceptLetter(letter);
     }

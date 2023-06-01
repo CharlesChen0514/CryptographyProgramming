@@ -1,4 +1,4 @@
-package org.bitkernel.rsa;
+package org.bitkernel.cryptography;
 
 import com.sun.istack.internal.NotNull;
 import lombok.Getter;
