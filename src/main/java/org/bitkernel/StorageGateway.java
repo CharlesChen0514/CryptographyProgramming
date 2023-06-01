@@ -81,9 +81,9 @@ public class StorageGateway {
             List<DataBlock> dataBlocks = generateDataBlocks(i, subPriKeys.get(i));
             String subKeyStr = new String(combine(dataBlocks));
             if (subKeyStr.contains(sliceStr)) {
-                logger.debug("The {}th sub-private key recover successfully", i);
+                logger.debug("The {}'s sub-private key recover successfully", userName);
             } else {
-                logger.error("The {}th sub-private key recover failed", i);
+                logger.error("The {}'s sub-private key recover failed", userName);
                 res = false;
             }
         }

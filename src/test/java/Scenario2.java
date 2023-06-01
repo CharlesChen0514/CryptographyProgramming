@@ -19,7 +19,7 @@ public class Scenario2 extends Scenario1 {
         signServer.register(bob.getName(), bob.getSecretKey(rsaPubKey));
 
         signServer.newSignRequest(alice.getName(), alice.generateSignReq(groupTag, "hello"), storageGateway);
-        logger.debug("{} is offline", bob.getName());
+        logger.debug("Simulate user {} is offline, sleep 2 seconds", bob.getName());
         Thread.sleep(2000);
         logger.debug("{} is online", bob.getName());
         SignRequest signReq = signServer.authorized(bob.getName(), bob.generateAuthorizedReq(groupTag), storageGateway);
