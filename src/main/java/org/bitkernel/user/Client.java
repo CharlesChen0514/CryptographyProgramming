@@ -81,7 +81,7 @@ public class Client {
         try {
             String cmd = String.format("%s@%s@%s:%d", username, CmdType.REGISTER.cmd,
                     InetAddress.getLocalHost().getHostAddress(), Config.getClientPort());
-            udp.send(Config.getMpcIp(), Config.getMpcPort(), cmd);
+            udp.send(Config.getMpcMainIp(), Config.getMpcMainPort(), cmd);
         } catch (UnknownHostException e) {
             throw new RuntimeException(e);
         }
@@ -118,10 +118,10 @@ public class Client {
         CmdType type = CmdType.cmdToEnumMap.get(split[1].trim());
         switch (type) {
             case CREATE_GROUP:
-                udp.send(Config.getMpcIp(), Config.getMpcPort(), fullCmdLine);
+                udp.send(Config.getMpcMainIp(), Config.getMpcMainPort(), fullCmdLine);
                 break;
             case JOIN_GROUP:
-                udp.send(Config.getMpcIp(), Config.getMpcPort(), fullCmdLine);
+                udp.send(Config.getMpcMainIp(), Config.getMpcMainPort(), fullCmdLine);
                 break;
             case SCENARIO1_TEST:
             case SCENARIO2_TEST:

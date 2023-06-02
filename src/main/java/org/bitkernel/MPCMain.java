@@ -20,7 +20,7 @@ public class MPCMain {
     private final String sysName = "mpc main";
 
     public MPCMain() {
-        udp = new Udp(Config.getMpcPort());
+        udp = new Udp(Config.getMpcMainPort());
     }
 
     public static void main(String[] args) {

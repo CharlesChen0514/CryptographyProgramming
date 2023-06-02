@@ -15,9 +15,11 @@ public class Config {
     @Getter
     private static int clientPort;
     @Getter
-    private static int mpcPort;
+    private static int mpcMainPort;
     @Getter
-    private static String mpcIp;
+    private static String mpcMainIp;
+    @Getter
+    private static int mpcPort;
 
     @NotNull
     public static Properties readProperty(@NotNull String fileName) {
@@ -40,7 +42,8 @@ public class Config {
         positions = new int[]{idx1, idx2, idx3};
 
         clientPort = Integer.parseInt(properties.getProperty("clientPort"));
+        mpcMainPort = Integer.parseInt(properties.getProperty("mpcMainPort"));
+        mpcMainIp = properties.getProperty("mpcMainIp");
         mpcPort = Integer.parseInt(properties.getProperty("mpcPort"));
-        mpcIp = properties.getProperty("mpcIp");
     }
 }

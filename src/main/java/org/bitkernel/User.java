@@ -56,6 +56,11 @@ public class User {
         logger.debug("The 128-bit random bit integer [{}]", r);
     }
 
+    public static void main(String[] args) {
+        Config.init();
+        User user = new User(args[0].trim(), Config.getAlphabets(), Config.getPositions());
+    }
+
     /**
      * @param publicKey RSA public key
      * @return encrypted symmetric key
