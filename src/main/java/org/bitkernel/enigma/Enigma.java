@@ -64,7 +64,7 @@ public class Enigma {
         String alphabets = "abcdefghijklmnopqrstuvwxyz";
         int[] ps = {0, 1, 2};
         Enigma encryptedEnigma = new Enigma(alphabets, ps);
-        String key = "abcdef";
+        String key = "chenjial";
 
         String d1Str = encryptedEnigma.encode(key);
         String d2Str = encryptedEnigma.encode(key);

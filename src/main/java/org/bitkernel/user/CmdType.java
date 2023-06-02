@@ -10,6 +10,7 @@ import java.util.Set;
 
 @AllArgsConstructor
 public enum CmdType {
+    REGISTER("-r", "register", "-r@socketAddress"),
     CREATE_GROUP("-c", "create a group", "-c@groupName"),
     JOIN_GROUP("-j", "join a group", "-j@groupName"),
     SCENARIO1_TEST("-s1t", "scenario 1 test", "-s1t@groupName"),

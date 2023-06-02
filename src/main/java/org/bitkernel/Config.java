@@ -12,6 +12,12 @@ public class Config {
     private static String alphabets;
     @Getter
     private static int[] positions;
+    @Getter
+    private static int clientPort;
+    @Getter
+    private static int mpcPort;
+    @Getter
+    private static String mpcIp;
 
     @NotNull
     public static Properties readProperty(@NotNull String fileName) {
@@ -32,5 +38,9 @@ public class Config {
         int idx2 = Integer.parseInt(properties.getProperty("midRotorPos"));
         int idx3 = Integer.parseInt(properties.getProperty("slowRotorPos"));
         positions = new int[]{idx1, idx2, idx3};
+
+        clientPort = Integer.parseInt(properties.getProperty("clientPort"));
+        mpcPort = Integer.parseInt(properties.getProperty("mpcPort"));
+        mpcIp = properties.getProperty("mpcIp");
     }
 }
