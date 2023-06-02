@@ -10,10 +10,11 @@ public class Enigma {
     private final Rotor slowRotor;
     private final Reflector reflector;
 
-    public Enigma() {
-        quickRotor = new Rotor();
-        midRotor = new Rotor();
-        slowRotor = new Rotor();
+    public Enigma(@NotNull String alphabets, @NotNull int[] positions) {
+        quickRotor = new Rotor(alphabets);
+        midRotor = new Rotor(alphabets);
+        slowRotor = new Rotor(alphabets);
+        setPos(positions[0], positions[1], positions[2]);
         reflector = new Reflector();
     }
 
@@ -34,10 +35,9 @@ public class Enigma {
     }
 
     @NotNull
-    public EnigmaMessage encode(@NotNull String input) {
+    public String encode(@NotNull String input) {
         StringBuilder sb = new StringBuilder();
         input = input.toLowerCase();
-        int[] positions = {quickRotor.getPos(), midRotor.getPos(), slowRotor.getPos()};
         for (char c : input.toCharArray()) {
             char encrypted = quickRotor.getChar(c);
             encrypted = midRotor.getChar(encrypted);
@@ -52,29 +52,26 @@ public class Enigma {
 
             rotate();
         }
-        return new EnigmaMessage(positions, sb.toString());
+        return sb.toString();
     }
 
     @NotNull
-    public String decode(@NotNull EnigmaMessage message) {
-        int[] positions = message.getPositions();
-        quickRotor.setPos(positions[0]);
-        midRotor.setPos(positions[1]);
-        slowRotor.setPos(positions[2]);
-        return encode(message.getStr()).getStr();
+    public String decode(@NotNull String message) {
+        return encode(message);
     }
 
     public static void main(String[] args) {
-        Enigma encryptedEnigma = new Enigma();
-        encryptedEnigma.setPos(2, 5, 7);
+        String alphabets = "abcdefghijklmnopqrstuvwxyz";
+        int[] ps = {0, 1, 2};
+        Enigma encryptedEnigma = new Enigma(alphabets, ps);
         String key = "abcdef";
 
-        EnigmaMessage d1Str = encryptedEnigma.encode(key);
-        EnigmaMessage d2Str = encryptedEnigma.encode(key);
-        System.out.println(d1Str.getStr());
-        System.out.println(d2Str.getStr());
+        String d1Str = encryptedEnigma.encode(key);
+        String d2Str = encryptedEnigma.encode(key);
+        System.out.println(d1Str);
+        System.out.println(d2Str);
 
-        Enigma decryptedEnigma = new Enigma();
+        Enigma decryptedEnigma = new Enigma(alphabets, ps);
         String key1 = decryptedEnigma.decode(d1Str);
         String key2 = decryptedEnigma.decode(d2Str);
         System.out.println(key1);
@@ -84,10 +81,14 @@ public class Enigma {
 
 class Rotor {
     private final static int CHAR_NUMBER = 26;
-    private final String alphabets = "abcdefghijklmnopqrstuvwxyz";
+    private final String alphabets;
     @Getter
     @Setter
     private int pos = 0;
+
+    public Rotor(@NotNull String alphabets) {
+        this.alphabets = alphabets;
+    }
 
     public void rotate() {
         pos = (pos + 1) % CHAR_NUMBER;

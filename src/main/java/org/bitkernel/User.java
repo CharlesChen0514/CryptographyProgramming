@@ -5,7 +5,6 @@ import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import org.bitkernel.cryptography.AESUtil;
 import org.bitkernel.enigma.Enigma;
-import org.bitkernel.enigma.EnigmaMessage;
 import org.bitkernel.cryptography.RSAUtil;
 
 import javax.crypto.*;
@@ -20,9 +19,9 @@ public class User {
     private final Enigma encryptMachine;
     private String rootKey;
     @Getter
-    private EnigmaMessage d1;
+    private String d1Str;
     @Getter
-    private EnigmaMessage d2;
+    private String d2Str;
     /** 128-bit random bit integer "R" */
     @Getter
     private final BigInteger r;
@@ -31,7 +30,8 @@ public class User {
 
     public User(@NotNull String name) {
         this.name = name;
-        this.encryptMachine = new Enigma();
+        int[] ps = {0, 1, 2};
+        this.encryptMachine = new Enigma("abcdefghijklmnopqrstuvwxyz", ps);
         this.secretKey = AESUtil.generateKey();
         // According to the name to set the enigma initial position
         BigInteger num = new BigInteger(name.getBytes());
@@ -82,29 +82,29 @@ public class User {
      */
     public void generateEncryptedNumber(@NotNull String key) {
         this.rootKey = key;
-        d1 = encryptMachine.encode(key);
-        d2 = encryptMachine.encode(key);
+        d1Str = encryptMachine.encode(key);
+        d2Str = encryptMachine.encode(key);
         logger.debug(String.format("[%s's] key is [%s], d1 string is [%s], d2 string is [%s]",
-                name, key, d1.getStr(), d2.getStr()));
+                name, key, d1Str, d2Str));
     }
 
     @NotNull
     public BigInteger addD1WithR(@NotNull BigInteger start) {
-        BigInteger add = start.add(getDWithR(d1));
+        BigInteger add = start.add(getDWithR(d1Str));
         logger.debug(String.format("%s accept X[%s], return X[%s]", name, start, add));
         return add;
     }
 
     @NotNull
     public BigInteger addD2WithR(@NotNull BigInteger start) {
-        BigInteger add = start.add(getDWithR(d2));
+        BigInteger add = start.add(getDWithR(d2Str));
         logger.debug(String.format("%s accept X[%s], return X[%s]", name, start, add));
         return add;
     }
 
     @NotNull
-    public BigInteger getDWithR(@NotNull EnigmaMessage dString) {
-        BigInteger d = new BigInteger(dString.getStr().getBytes());
+    public BigInteger getDWithR(@NotNull String dString) {
+        BigInteger d = new BigInteger(dString.getBytes());
         return r.add(d);
     }
 }
