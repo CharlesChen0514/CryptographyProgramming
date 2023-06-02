@@ -56,8 +56,25 @@ public class Client {
         String key = in.next();
 
         Client client = new Client(userName, key);
+        client.startReceiver();
         client.register();
         client.guide();
+    }
+
+    private void startReceiver() {
+        Thread t1 = new Thread(() -> {
+            while (isRunning) {
+                String fullCmdLine = udp.receiveString();
+                String[] split = fullCmdLine.split("@");
+                CmdType type = CmdType.cmdToEnumMap.get(split[1].trim());
+                switch (type) {
+                    case RESPONSE:
+                        System.out.println(split[2]);
+                        break;
+                }
+            }
+        });
+        t1.start();
     }
 
     private void register() {
@@ -101,6 +118,8 @@ public class Client {
         CmdType type = CmdType.cmdToEnumMap.get(split[1].trim());
         switch (type) {
             case CREATE_GROUP:
+                udp.send(Config.getMpcIp(), Config.getMpcPort(), fullCmdLine);
+                break;
             case JOIN_GROUP:
             case SCENARIO1_TEST:
             case SCENARIO2_TEST:

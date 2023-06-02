@@ -16,6 +16,7 @@ public enum CmdType {
     SCENARIO1_TEST("-s1t", "scenario 1 test", "-s1t@groupName"),
     SCENARIO2_TEST("-s2t", "scenario 2 test", "-s2t@groupName"),
     SCENARIO3_TEST("-s3t", "scenario 3 test", "-s3t@groupName"),
+    RESPONSE("-rsp", "response message", "-rsp@msg"),
     EXIT("-q", "exit", "-q");
 
     public final String cmd;

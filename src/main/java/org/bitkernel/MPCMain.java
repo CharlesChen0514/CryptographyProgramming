@@ -14,8 +14,10 @@ public class MPCMain {
     public static final int R_BYTE_NUM = 16;
     public static final int RSA_BYTE_NUM = 128;
     private final Udp udp;
-    private final Map<String, List<String>> groupMap = new LinkedHashMap<>();
+    /** group name -> group object */
+    private final Map<String, Group> groupMap = new LinkedHashMap<>();
     private final Map<String, Pair<String, Integer>> userSocketAddrMap = new LinkedHashMap<>();
+    private final String sysName = "mpc main";
 
     public MPCMain() {
         udp = new Udp(Config.getMpcPort());
@@ -36,13 +38,31 @@ public class MPCMain {
 
     private void response(@NotNull String fullCmdLine) {
         String[] split = fullCmdLine.split("@");
+        String userName = split[0];
+        String msg = split[2];
         CmdType type = CmdType.cmdToEnumMap.get(split[1].trim());
         switch (type) {
             case REGISTER:
-                registerUser(split[0], split[2]);
+                registerUser(userName, msg);
+                break;
+            case CREATE_GROUP:
+                createGroup(userName, msg);
                 break;
             default:
         }
+    }
+
+    private void createGroup(@NotNull String user, @NotNull String groupName) {
+        Pair<String, Integer> socketAddr = userSocketAddrMap.get(user);
+        String msg;
+        if (groupMap.containsKey(groupName)) {
+            msg = String.format("create group [%s] failed", groupName);
+        } else {
+            groupMap.put(groupName, new Group(user, groupName));
+            msg = String.format("create group [%s] success", groupName);
+        }
+        String cmd = String.format("%s@%s@%s", sysName, CmdType.RESPONSE.cmd, msg);
+        udp.send(socketAddr.getKey(), socketAddr.getValue(), cmd);
     }
 
     private void registerUser(@NotNull String user, @NotNull String socketAddr) {
@@ -163,5 +183,16 @@ public class MPCMain {
             output[i * factor] = inputFormatted[i];
         }
         return new BigInteger(output);
+    }
+}
+
+class Group {
+    private final List<String> groupMember = new ArrayList<>();
+    private final String master;
+    private final String groupName;
+    public Group(@NotNull String user, @NotNull String groupName) {
+        this.master = user;
+        this.groupName = groupName;
+        groupMember.add(user);
     }
 }
