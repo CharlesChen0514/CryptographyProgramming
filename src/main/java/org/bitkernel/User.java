@@ -33,15 +33,22 @@ public class User {
         int[] ps = {0, 1, 2};
         this.encryptMachine = new Enigma("abcdefghijklmnopqrstuvwxyz", ps);
         this.secretKey = AESUtil.generateKey();
-        // According to the name to set the enigma initial position
-        BigInteger num = new BigInteger(name.getBytes());
-        int pos = num.mod(BigInteger.valueOf(26)).intValue();
-        int idx1 = pos;
-        int idx2 = (pos * 2 + 1) % 26;
-        int idx3 = (pos * 3 + 2) % 26;
-        logger.debug(String.format("The initial position of user [%s's] enigma is set to [%d, %d, %d]",
-                name, idx1, idx2, idx3));
-        encryptMachine.setPos(idx1, idx2, idx3);
+//        logger.debug(String.format("The initial position of user [%s's] enigma is set to [%d, %d, %d]",
+//                name, idx1, idx2, idx3));
+
+        byte[] rBytes = new byte[16];
+        new SecureRandom().nextBytes(rBytes);
+        r = new BigInteger(rBytes);
+        logger.debug("The 128-bit random bit integer [{}]", r);
+    }
+
+    public User(@NotNull String name, @NotNull String alphabets,
+                @NotNull int[] ps) {
+        this.name = name;
+        this.encryptMachine = new Enigma(alphabets, ps);
+        this.secretKey = AESUtil.generateKey();
+//        logger.debug(String.format("The initial position of user [%s's] enigma is set to [%d, %d, %d]",
+//                name, idx1, idx2, idx3));
 
         byte[] rBytes = new byte[16];
         new SecureRandom().nextBytes(rBytes);
