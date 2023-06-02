@@ -121,6 +121,8 @@ public class Client {
                 udp.send(Config.getMpcIp(), Config.getMpcPort(), fullCmdLine);
                 break;
             case JOIN_GROUP:
+                udp.send(Config.getMpcIp(), Config.getMpcPort(), fullCmdLine);
+                break;
             case SCENARIO1_TEST:
             case SCENARIO2_TEST:
             case SCENARIO3_TEST:

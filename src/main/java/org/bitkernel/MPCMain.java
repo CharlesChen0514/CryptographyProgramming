@@ -48,12 +48,28 @@ public class MPCMain {
             case CREATE_GROUP:
                 createGroup(userName, msg);
                 break;
+            case JOIN_GROUP:
+                joinGroup(userName, msg);
+                break;
             default:
         }
     }
 
-    private void createGroup(@NotNull String user, @NotNull String groupName) {
+    private void joinGroup(@NotNull String user, @NotNull String groupName) {
+        String msg;
+        if (!groupMap.containsKey(groupName)) {
+            msg = String.format("Non-existent group [%s]", groupName);
+        } else {
+            Group group = groupMap.get(groupName);
+            group.join(user);
+            msg = String.format("join group [%s] success", groupName);
+        }
+        String cmd = String.format("%s@%s@%s", sysName, CmdType.RESPONSE.cmd, msg);
         Pair<String, Integer> socketAddr = userSocketAddrMap.get(user);
+        udp.send(socketAddr.getKey(), socketAddr.getValue(), cmd);
+    }
+
+    private void createGroup(@NotNull String user, @NotNull String groupName) {
         String msg;
         if (groupMap.containsKey(groupName)) {
             msg = String.format("create group [%s] failed", groupName);
@@ -62,6 +78,7 @@ public class MPCMain {
             msg = String.format("create group [%s] success", groupName);
         }
         String cmd = String.format("%s@%s@%s", sysName, CmdType.RESPONSE.cmd, msg);
+        Pair<String, Integer> socketAddr = userSocketAddrMap.get(user);
         udp.send(socketAddr.getKey(), socketAddr.getValue(), cmd);
     }
 
@@ -193,6 +210,10 @@ class Group {
     public Group(@NotNull String user, @NotNull String groupName) {
         this.master = user;
         this.groupName = groupName;
+        groupMember.add(user);
+    }
+
+    public void join(@NotNull String user) {
         groupMember.add(user);
     }
 }
