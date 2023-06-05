@@ -54,7 +54,7 @@ public class StorageGateway {
     /**
      * Judge the recovered RSA key is correct or not
      */
-    public boolean checkRecover(@NotNull User[] group,
+    public boolean checkRecover(@NotNull List<String> group,
                                 @NotNull String groupTag,
                                 @NotNull RSAKeyPair rsAKeyPair) {
         boolean flag = checkRecoverPriKey(group, groupTag, rsAKeyPair.getPrivateKey());
@@ -64,15 +64,15 @@ public class StorageGateway {
         return flag;
     }
 
-    private boolean checkRecoverPriKey(@NotNull User[] group,
+    private boolean checkRecoverPriKey(@NotNull List<String> group,
                                        @NotNull String groupTag,
                                        @NotNull PrivateKey privateKey) {
-        List<byte[]> subPriKeys = getPriKeySlicing(privateKey, group.length);
+        List<byte[]> subPriKeys = getPriKeySlicing(privateKey, group.size());
         List<Storage> workingStorages = getWorkingStorages();
         boolean res = true;
 
-        for (int i = 0; i < group.length; i++) {
-            String userName = group[i].getName();
+        for (int i = 0; i < group.size(); i++) {
+            String userName = group.get(i);
             List<DataBlock> remainBlocks = workingStorages.stream()
                     .map(s -> s.getPriKeyDataBlocks(groupTag, userName))
                     .flatMap(Collection::stream).collect(Collectors.toList());
@@ -116,7 +116,7 @@ public class StorageGateway {
     /**
      * store the public key and private key
      */
-    public void store(@NotNull User[] group,
+    public void store(@NotNull List<String> group,
                       @NotNull String groupTag,
                       @NotNull RSAKeyPair rsAKeyPair) {
         // use as a check
@@ -127,12 +127,12 @@ public class StorageGateway {
         storePubKey(groupTag, rsAKeyPair.getPublicKey());
     }
 
-    private void storePriKey(@NotNull User[] group,
+    private void storePriKey(@NotNull List<String> group,
                              @NotNull String groupTag,
                              @NotNull PrivateKey privateKey) {
-        List<byte[]> subPriKey = getPriKeySlicing(privateKey, group.length);
+        List<byte[]> subPriKey = getPriKeySlicing(privateKey, group.size());
         for (int i = 0; i < subPriKey.size(); i++) {
-            String userName = group[i].getName();
+            String userName = group.get(i);
             // use as a check
             userSubPriKeyMap.putIfAbsent(groupTag, new LinkedHashMap<>());
             userSubPriKeyMap.get(groupTag).put(userName, subPriKey.get(i));
