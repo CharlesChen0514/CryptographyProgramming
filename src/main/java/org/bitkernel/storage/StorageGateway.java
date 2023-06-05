@@ -10,7 +10,6 @@ import org.bitkernel.reedsolomon.robinliew.dealbytesinterface.IRSErasureCorrecti
 import org.bitkernel.reedsolomon.robinliew.dealbytesinterface.RSErasureCorrectionImpl;
 import org.bitkernel.cryptography.RSAKeyPair;
 import org.bitkernel.cryptography.RSAUtil;
-import org.bitkernel.common.CmdType;
 
 import java.security.PrivateKey;
 import java.security.PublicKey;
@@ -39,42 +38,6 @@ public class StorageGateway {
             storages[i] = new Storage();
         }
         udp = new Udp(Config.getStorageGatewayPort());
-    }
-
-    public static void main(String[] args) {
-        StorageGateway storageGateway = new StorageGateway();
-        storageGateway.run();
-    }
-
-    public void run() {
-        logger.debug("StorageGateway start success");
-        while (true) {
-            String fullCmdLine = udp.receiveString();
-            response(fullCmdLine);
-        }
-    }
-
-    private void response(@NotNull String fullCmdLine) {
-        String[] split = fullCmdLine.split("@");
-        String name = split[0];
-        String msg = split[2];
-        CmdType type = CmdType.cmdToEnumMap.get(split[1].trim());
-        switch (type) {
-            case STORE:
-                store(msg);
-                break;
-            default:
-        }
-    }
-
-    private void store(@NotNull String msg) {
-        String[] split = msg.split(":");
-        String substring = split[0].substring(1, split[0].length() - 1);
-        List<String> member = Arrays.asList(substring.split(","));
-        String uuid = split[1].trim();
-        PublicKey publicKey = RSAUtil.getPublicKey(split[2].trim());
-        PrivateKey privateKey = RSAUtil.getPrivateKey(split[3].trim());
-        store(member, uuid, new RSAKeyPair(publicKey, privateKey));
     }
 
     public void randomDestroyProvider() {

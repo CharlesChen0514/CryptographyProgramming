@@ -10,6 +10,7 @@ import org.bitkernel.common.Udp;
 import org.bitkernel.cryptography.RSAKeyPair;
 import org.bitkernel.cryptography.RSAUtil;
 import org.bitkernel.common.CmdType;
+import org.bitkernel.storage.StorageGateway;
 
 import java.math.BigInteger;
 import java.util.*;
@@ -24,9 +25,11 @@ public class MPCMain {
     private final Map<String, Group> groupMap = new LinkedHashMap<>();
     private final Map<String, UserInfo> userInfoMap = new LinkedHashMap<>();
     private final String sysName = "mpc main";
+    private final StorageGateway storageGateway;
 
     public MPCMain() {
         udp = new Udp(Config.getMpcMainPort());
+        storageGateway = new StorageGateway();
     }
 
     public static void main(String[] args) {
@@ -80,13 +83,9 @@ public class MPCMain {
         logger.debug("{}'s sum of d2: {}", groupName, sumD);
         if (g.getSumD1() != null && g.getSumD2() != null) {
             RSAKeyPair rsaKeyPair = generateRSAKeyPair(g.getSumD1(), g.getSumD2());
-            String pubKey = RSAUtil.getKeyEncodedBase64(rsaKeyPair.getPublicKey());
-            String priKey = RSAUtil.getKeyEncodedBase64(rsaKeyPair.getPrivateKey());
-            String cmd = String.format("%s@%s@%s:%s:%s:%s",
-                    sysName, CmdType.STORE.cmd, g.getMember(), g.getUuid(), pubKey, priKey);
-            udp.send(Config.getStorageGatewayIp(), Config.getStorageGatewayPort(), cmd);
-            logger.debug("\nThe public key is {}", pubKey);
-            logger.debug("\nThe private key is {}", priKey);
+            storageGateway.store(g.getMember(), g.getUuid(), rsaKeyPair);
+            logger.debug("\nThe public key is {}", RSAUtil.getKeyEncodedBase64(rsaKeyPair.getPublicKey()));
+            logger.debug("\nThe private key is {}", RSAUtil.getKeyEncodedBase64(rsaKeyPair.getPrivateKey()));
         }
     }
 
@@ -97,13 +96,9 @@ public class MPCMain {
         logger.debug("{}'s sum of d1: {}", groupName, sumD);
         if (g.getSumD1() != null && g.getSumD2() != null) {
             RSAKeyPair rsaKeyPair = generateRSAKeyPair(g.getSumD1(), g.getSumD2());
-            String pubKey = RSAUtil.getKeyEncodedBase64(rsaKeyPair.getPublicKey());
-            String priKey = RSAUtil.getKeyEncodedBase64(rsaKeyPair.getPrivateKey());
-            String cmd = String.format("%s@%s@%s:%s:%s:%s",
-                    sysName, CmdType.STORE.cmd, g.getMember(), g.getUuid(), pubKey, priKey);
-            udp.send(Config.getStorageGatewayIp(), Config.getStorageGatewayPort(), cmd);
-            logger.debug("\nThe public key is {}", pubKey);
-            logger.debug("\nThe private key is {}", priKey);
+            storageGateway.store(g.getMember(), g.getUuid(), rsaKeyPair);
+            logger.debug("\nThe public key is {}", RSAUtil.getKeyEncodedBase64(rsaKeyPair.getPublicKey()));
+            logger.debug("\nThe private key is {}", RSAUtil.getKeyEncodedBase64(rsaKeyPair.getPrivateKey()));
         }
     }
 
