@@ -3,7 +3,7 @@ package org.bitkernel.signserver;
 import com.sun.istack.internal.NotNull;
 import javafx.util.Pair;
 import lombok.extern.slf4j.Slf4j;
-import org.bitkernel.StorageGateway;
+import org.bitkernel.storage.StorageGateway;
 import org.bitkernel.cryptography.AESUtil;
 import org.bitkernel.cryptography.RSAKeyPair;
 import org.bitkernel.cryptography.RSAUtil;

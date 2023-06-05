@@ -3,9 +3,10 @@ package org.bitkernel.user;
 import com.sun.istack.internal.NotNull;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
-import org.bitkernel.Config;
-import org.bitkernel.MPC;
-import org.bitkernel.Udp;
+import org.bitkernel.common.CmdType;
+import org.bitkernel.common.Config;
+import org.bitkernel.mpc.MPC;
+import org.bitkernel.common.Udp;
 import org.bitkernel.enigma.Enigma;
 
 import java.math.BigInteger;

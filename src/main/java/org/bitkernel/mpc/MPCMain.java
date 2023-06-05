@@ -1,13 +1,15 @@
-package org.bitkernel;
+package org.bitkernel.mpc;
 
 import com.sun.istack.internal.NotNull;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.Setter;
 import lombok.extern.slf4j.Slf4j;
+import org.bitkernel.common.Config;
+import org.bitkernel.common.Udp;
 import org.bitkernel.cryptography.RSAKeyPair;
 import org.bitkernel.cryptography.RSAUtil;
-import org.bitkernel.user.CmdType;
+import org.bitkernel.common.CmdType;
 
 import java.math.BigInteger;
 import java.util.*;
@@ -182,6 +184,10 @@ public class MPCMain {
     }
 
     private void registerUser(@NotNull String user, @NotNull String addr) {
+        if (userInfoMap.containsKey(user)) {
+            logger.debug("{} online", user);
+            return;
+        }
         String[] split = addr.split(":");
         String clientIp = split[0].trim();
         int clientPort = Integer.parseInt(split[1]);

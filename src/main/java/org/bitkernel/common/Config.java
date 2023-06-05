@@ -1,4 +1,4 @@
-package org.bitkernel;
+package org.bitkernel.common;
 
 import com.sun.istack.internal.NotNull;
 import lombok.Getter;
