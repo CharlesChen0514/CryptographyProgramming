@@ -6,6 +6,7 @@ import lombok.Getter;
 import lombok.Setter;
 import lombok.extern.slf4j.Slf4j;
 import org.bitkernel.cryptography.RSAKeyPair;
+import org.bitkernel.cryptography.RSAUtil;
 import org.bitkernel.user.CmdType;
 
 import java.math.BigInteger;
@@ -72,14 +73,26 @@ public class MPCMain {
 
     private void setSumD2(@NotNull String groupName, @NotNull String msg) {
         BigInteger sumD = computeSumD(groupName, msg);
-        groupMap.get(groupName).setSumD2(sumD);
+        Group g = groupMap.get(groupName);
+        g.setSumD2(sumD);
         logger.debug("{}'s sum of d2: {}", groupName, sumD);
+        if (g.getSumD1() != null && g.getSumD2() != null) {
+            RSAKeyPair rsaKeyPair = generateRSAKeyPair(g.getSumD1(), g.getSumD2());
+            logger.debug("\nThe public key is {}", RSAUtil.getKeyEncodedBase64(rsaKeyPair.getPublicKey()));
+            logger.debug("\nThe private key is {}", RSAUtil.getKeyEncodedBase64(rsaKeyPair.getPrivateKey()));
+        }
     }
 
     private void setSumD1(@NotNull String groupName, @NotNull String msg) {
         BigInteger sumD = computeSumD(groupName, msg);
-        groupMap.get(groupName).setSumD1(sumD);
+        Group g = groupMap.get(groupName);
+        g.setSumD1(sumD);
         logger.debug("{}'s sum of d1: {}", groupName, sumD);
+        if (g.getSumD1() != null && g.getSumD2() != null) {
+            RSAKeyPair rsaKeyPair = generateRSAKeyPair(g.getSumD1(), g.getSumD2());
+            logger.debug("\nThe public key is {}", RSAUtil.getKeyEncodedBase64(rsaKeyPair.getPublicKey()));
+            logger.debug("\nThe private key is {}", RSAUtil.getKeyEncodedBase64(rsaKeyPair.getPrivateKey()));
+        }
     }
 
     @NotNull
