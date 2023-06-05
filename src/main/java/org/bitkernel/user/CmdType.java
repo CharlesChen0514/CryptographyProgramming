@@ -10,7 +10,7 @@ import java.util.Set;
 
 @AllArgsConstructor
 public enum CmdType {
-    REGISTER("-r", "register", "-r@socketAddress"),
+    REGISTER("-r", "register", "-r@clientIp:clientPort:mpcPort:R"),
     CREATE_GROUP("-c", "create a group", "-c@groupName"),
     JOIN_GROUP("-j", "join a group", "-j@groupUuid"),
     GROUP_List("-gl", "query the groups you are in", "-gl"),
@@ -18,7 +18,9 @@ public enum CmdType {
     SCENARIO2_TEST("-s2t", "scenario 2 test", "-s2t@groupName"),
     SCENARIO3_TEST("-s3t", "scenario 3 test", "-s3t@groupName"),
     RESPONSE("-rsp", "response message", "-rsp@msg"),
-    EXIT("-q", "exit", "-q");
+    EXIT("-q", "exit", "-q"),
+
+    SMPC("-smpc", "SMPC", "-smpc@idx:path:X");
 
     public final String cmd;
     public final String description;

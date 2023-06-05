@@ -46,8 +46,9 @@ public class Config {
         positions = new int[]{idx1, idx2, idx3};
 
         clientPort = Integer.parseInt(properties.getProperty("clientPort"));
+        mpcPort = Integer.parseInt(properties.getProperty("mpcPort"));
+
         mpcMainPort = Integer.parseInt(properties.getProperty("mpcMainPort"));
         mpcMainIp = properties.getProperty("mpcMainIp");
-        mpcPort = Integer.parseInt(properties.getProperty("mpcPort"));
     }
 }

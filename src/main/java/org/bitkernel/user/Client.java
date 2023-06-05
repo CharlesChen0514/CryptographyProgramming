@@ -4,10 +4,12 @@ import com.sun.istack.internal.NotNull;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import org.bitkernel.Config;
+import org.bitkernel.MPC;
 import org.bitkernel.Udp;
 import org.bitkernel.enigma.Enigma;
 
 import java.math.BigInteger;
+import java.net.DatagramPacket;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
 import java.security.SecureRandom;
@@ -54,15 +56,16 @@ public class Client {
         String key = in.next();
 
         Client client = new Client(userName, key);
-        client.startReceiver();
+        client.startLocalService();
         client.register();
         client.guide();
     }
 
-    private void startReceiver() {
+    private void startLocalService() {
         Thread t1 = new Thread(() -> {
             while (isRunning) {
-                String fullCmdLine = udp.receiveString();
+                DatagramPacket pkt = udp.receivePkt();
+                String fullCmdLine = udp.pktToString(pkt);
                 String[] split = fullCmdLine.split("@");
                 CmdType type = CmdType.cmdToEnumMap.get(split[1].trim());
                 switch (type) {
@@ -73,13 +76,24 @@ public class Client {
             }
         });
         t1.start();
+        logger.debug("start udp receiver successfully");
+
+        Thread t2 = new Thread(new MPC(Config.getMpcPort(), getDWithR(d1Str), getDWithR(d2Str)));
+        t2.start();
+        logger.info("start mpc instance successfully, its socket port is: {}", Config.getMpcPort());
+    }
+
+    @NotNull
+    public BigInteger getDWithR(@NotNull String dString) {
+        BigInteger d = new BigInteger(dString.getBytes());
+        return r.add(d);
     }
 
     private void register() {
         try {
-            String cmd = String.format("%s@%s@%s:%d:%d", username, CmdType.REGISTER.cmd,
+            String cmd = String.format("%s@%s@%s:%d:%d:%s", username, CmdType.REGISTER.cmd,
                     InetAddress.getLocalHost().getHostAddress(), Config.getClientPort(),
-                    Config.getMpcPort());
+                    Config.getMpcPort(), r);
             udp.send(Config.getMpcMainIp(), Config.getMpcMainPort(), cmd);
         } catch (UnknownHostException e) {
             throw new RuntimeException(e);
@@ -128,6 +142,8 @@ public class Client {
                 udp.send(Config.getMpcMainIp(), Config.getMpcMainPort(), fFullCmdLine);
                 break;
             case SCENARIO1_TEST:
+                udp.send(Config.getMpcMainIp(), Config.getMpcMainPort(), fFullCmdLine);
+                break;
             case SCENARIO2_TEST:
             case SCENARIO3_TEST:
             case EXIT:

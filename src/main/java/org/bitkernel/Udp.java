@@ -2,6 +2,7 @@ package org.bitkernel;
 
 import com.sun.istack.internal.NotNull;
 import com.sun.istack.internal.Nullable;
+import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
@@ -13,6 +14,7 @@ import java.net.SocketException;
 @Slf4j
 public class Udp {
     private static final int BUFF_LEN = 4096;
+    @Getter
     private int port;
     private DatagramSocket socket;
 

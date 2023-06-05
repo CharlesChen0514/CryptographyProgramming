@@ -1,15 +1,13 @@
 package org.bitkernel;
 
 import com.sun.istack.internal.NotNull;
-import javafx.util.Pair;
+import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import org.bitkernel.cryptography.RSAKeyPair;
 import org.bitkernel.user.CmdType;
 
 import java.math.BigInteger;
-import java.net.InetAddress;
-import java.net.UnknownHostException;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -20,8 +18,7 @@ public class MPCMain {
     private final Udp udp;
     /** group name -> group object */
     private final Map<String, Group> groupMap = new LinkedHashMap<>();
-    private final Map<String, MPC> mpcMap = new LinkedHashMap<>();
-    private final Map<String, Pair<String, Integer>> userSocketAddrMap = new LinkedHashMap<>();
+    private final Map<String, UserInfo> userInfoMap = new LinkedHashMap<>();
     private final String sysName = "mpc main";
 
     public MPCMain() {
@@ -60,9 +57,26 @@ public class MPCMain {
                 getGroupNameList(userName);
                 break;
             case SCENARIO1_TEST:
+                generateTransferPath(msg);
                 break;
             default:
         }
+    }
+
+    private void generateTransferPath(@NotNull String groupName) {
+        Group group = groupMap.get(groupName);
+        List<Integer> path = new ArrayList<>();
+        for (int i = 0; i < group.getMember().size(); i++) {
+            path.add(i);
+        }
+        Collections.shuffle(path);
+        printPath(path, group.getMember());
+
+        List<String> namePath = path.stream().map(idx -> group.getMember().get(idx))
+                .collect(Collectors.toList());
+        String msg = String.format("%s@%s@%d:%s:%s", sysName, CmdType.SMPC.cmd, 0, namePath, 0);
+//        Pair<String, Integer> addr = mpcMap.get(namePath.get(0)).getAddr();
+//        udp.send(addr.getKey(), addr.getValue(), msg);
     }
 
     private void getGroupNameList(@NotNull String userName) {
@@ -100,27 +114,20 @@ public class MPCMain {
 
     private void sendToUser(@NotNull String user, @NotNull String msg) {
         String cmd = String.format("%s@%s@%s", sysName, CmdType.RESPONSE.cmd, msg);
-        Pair<String, Integer> socketAddr = userSocketAddrMap.get(user);
-        udp.send(socketAddr.getKey(), socketAddr.getValue(), cmd);
+        UserInfo userInfo = userInfoMap.get(user);
+        udp.send(userInfo.getIp(), userInfo.getUserPort(), cmd);
     }
 
     private void registerUser(@NotNull String user, @NotNull String addr) {
         String[] split = addr.split(":");
         String clientIp = split[0].trim();
         int clientPort = Integer.parseInt(split[1]);
-        userSocketAddrMap.put(user, new Pair<>(clientIp, clientPort));
-        logger.info(String.format("%s register successfully, its socket address is: %s:%s",
-                user, clientIp, clientPort));
-
         int mpcPort = Integer.parseInt(split[2]);
-        MPC mpc = new MPC(mpcPort);
-        mpcMap.put(user, mpc);
-        try {
-            logger.info("start mpc instance successfully, its socket address is: {}:{}",
-                    InetAddress.getLocalHost().getHostAddress(), mpcPort);
-        } catch (UnknownHostException e) {
-            throw new RuntimeException(e);
-        }
+        BigInteger r = new BigInteger(split[3]);
+        UserInfo info = new UserInfo(clientIp, clientPort, mpcPort, r);
+        userInfoMap.put(user, info);
+        logger.info(String.format("%s register successfully, its socket address: %s:%s, mpc port: %s, r: %s",
+                user, clientIp, clientPort, mpcPort, r));
     }
 
     /**
@@ -152,6 +159,18 @@ public class MPCMain {
         for (int idx : path) {
             User user = group[idx];
             sb.append(user.getName()).append("->");
+        }
+        sb.deleteCharAt(sb.length() - 1);
+        sb.deleteCharAt(sb.length() - 1);
+        logger.debug("The SMPC transfer path is: {}", sb);
+    }
+
+    @NotNull
+    public static void printPath(@NotNull List<Integer> path,
+                                 @NotNull List<String> group) {
+        StringBuilder sb = new StringBuilder();
+        for (int idx : path) {
+            sb.append(group.get(idx)).append("->");
         }
         sb.deleteCharAt(sb.length() - 1);
         sb.deleteCharAt(sb.length() - 1);
@@ -236,7 +255,20 @@ public class MPCMain {
     }
 }
 
+@AllArgsConstructor
+class UserInfo {
+    @Getter
+    private final String ip;
+    @Getter
+    private final int userPort;
+    @Getter
+    private final int mpcPort;
+    @Getter
+    private final BigInteger r;
+}
+
 class Group {
+    @Getter
     private final List<String> member = new ArrayList<>();
     private final String master;
     @Getter
