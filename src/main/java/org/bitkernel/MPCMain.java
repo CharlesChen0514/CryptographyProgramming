@@ -2,12 +2,14 @@ package org.bitkernel;
 
 import com.sun.istack.internal.NotNull;
 import javafx.util.Pair;
+import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import org.bitkernel.cryptography.RSAKeyPair;
 import org.bitkernel.user.CmdType;
 
 import java.math.BigInteger;
 import java.util.*;
+import java.util.stream.Collectors;
 
 @Slf4j
 public class MPCMain {
@@ -24,7 +26,6 @@ public class MPCMain {
     }
 
     public static void main(String[] args) {
-        Config.init();
         MPCMain mpcMain = new MPCMain();
         mpcMain.run();
     }
@@ -51,22 +52,32 @@ public class MPCMain {
             case JOIN_GROUP:
                 joinGroup(userName, msg);
                 break;
+            case GROUP_List:
+                getGroupNameList(userName);
+                break;
             default:
         }
     }
 
-    private void joinGroup(@NotNull String user, @NotNull String groupName) {
+    private void getGroupNameList(@NotNull String userName) {
+        List<String> names = groupMap.values().stream().filter(g -> g.contains(userName))
+                .map(Group::getName).collect(Collectors.toList());
+        String msg = String.format("The group you are in has: %s", names);
+        sendToUser(userName, msg);
+    }
+
+    private void joinGroup(@NotNull String user, @NotNull String groupUuid) {
+        Optional<Group> first = groupMap.values().stream()
+                .filter(g -> g.getUuid().equals(groupUuid)).findFirst();
         String msg;
-        if (!groupMap.containsKey(groupName)) {
-            msg = String.format("Non-existent group [%s]", groupName);
+        if (!first.isPresent()) {
+            msg = String.format("Non-existent group of uuid [%s]", groupUuid);
         } else {
-            Group group = groupMap.get(groupName);
+            Group group = first.get();
             group.join(user);
-            msg = String.format("join group [%s] success", groupName);
+            msg = String.format("join group [%s] success", group.getName());
         }
-        String cmd = String.format("%s@%s@%s", sysName, CmdType.RESPONSE.cmd, msg);
-        Pair<String, Integer> socketAddr = userSocketAddrMap.get(user);
-        udp.send(socketAddr.getKey(), socketAddr.getValue(), cmd);
+        sendToUser(user, msg);
     }
 
     private void createGroup(@NotNull String user, @NotNull String groupName) {
@@ -74,9 +85,14 @@ public class MPCMain {
         if (groupMap.containsKey(groupName)) {
             msg = String.format("create group [%s] failed", groupName);
         } else {
-            groupMap.put(groupName, new Group(user, groupName));
-            msg = String.format("create group [%s] success", groupName);
+            Group g = new Group(user, groupName);
+            groupMap.put(groupName, g);
+            msg = String.format("create group [%s] success, uuid: %s", groupName, g.getUuid());
         }
+        sendToUser(user, msg);
+    }
+
+    private void sendToUser(@NotNull String user, @NotNull String msg) {
         String cmd = String.format("%s@%s@%s", sysName, CmdType.RESPONSE.cmd, msg);
         Pair<String, Integer> socketAddr = userSocketAddrMap.get(user);
         udp.send(socketAddr.getKey(), socketAddr.getValue(), cmd);
@@ -204,16 +220,29 @@ public class MPCMain {
 }
 
 class Group {
-    private final List<String> groupMember = new ArrayList<>();
+    private final List<String> member = new ArrayList<>();
     private final String master;
-    private final String groupName;
-    public Group(@NotNull String user, @NotNull String groupName) {
+    @Getter
+    private final String name;
+    @Getter
+    private final String uuid;
+    public Group(@NotNull String user, @NotNull String name) {
         this.master = user;
-        this.groupName = groupName;
-        groupMember.add(user);
+        this.name = name;
+        member.add(user);
+        uuid = getUUID32();
     }
 
     public void join(@NotNull String user) {
-        groupMember.add(user);
+        member.add(user);
+    }
+
+    public boolean contains(@NotNull String user) {
+        return member.contains(user);
+    }
+
+    @NotNull
+    public static String getUUID32() {
+        return UUID.randomUUID().toString().replace("-", "").toLowerCase();
     }
 }

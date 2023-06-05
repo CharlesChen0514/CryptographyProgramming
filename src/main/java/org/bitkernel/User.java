@@ -57,7 +57,6 @@ public class User {
     }
 
     public static void main(String[] args) {
-        Config.init();
         User user = new User(args[0].trim(), Config.getAlphabets(), Config.getPositions());
     }
 

@@ -21,6 +21,10 @@ public class Config {
     @Getter
     private static int mpcPort;
 
+    static {
+        Config.init();
+    }
+
     @NotNull
     public static Properties readProperty(@NotNull String fileName) {
         Properties prop = new Properties();

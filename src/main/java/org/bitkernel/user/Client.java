@@ -48,8 +48,6 @@ public class Client {
     }
 
     public static void main(String[] args) {
-        Config.init();
-
         System.out.print("Please input username: ");
         String userName = in.next();
         System.out.print("Please input key of length 8: ");
@@ -98,7 +96,9 @@ public class Client {
                 Printer.displayLn("Command error, please re-entered");
                 continue;
             }
-            process(fullCmdLine);
+            String fFullCmdLine = fullCmdLine.split("@").length == 2 ?
+                    fullCmdLine + "@" + " " : fullCmdLine;
+            process(fFullCmdLine);
         }
     }
 
@@ -106,22 +106,25 @@ public class Client {
         // lele@-c@group
         String[] split = fullCmdLine.split("@");
         CmdType type = CmdType.cmdToEnumMap.get(split[1].trim());
-        if (type == CmdType.EXIT) {
+        if (type == CmdType.EXIT || type == CmdType.GROUP_List) {
             return split.length == 2;
         } else {
             return split.length == 3;
         }
     }
 
-    private void process(@NotNull String fullCmdLine) {
-        String[] split = fullCmdLine.split("@");
+    private void process(@NotNull String fFullCmdLine) {
+        String[] split = fFullCmdLine.split("@");
         CmdType type = CmdType.cmdToEnumMap.get(split[1].trim());
         switch (type) {
             case CREATE_GROUP:
-                udp.send(Config.getMpcMainIp(), Config.getMpcMainPort(), fullCmdLine);
+                udp.send(Config.getMpcMainIp(), Config.getMpcMainPort(), fFullCmdLine);
                 break;
             case JOIN_GROUP:
-                udp.send(Config.getMpcMainIp(), Config.getMpcMainPort(), fullCmdLine);
+                udp.send(Config.getMpcMainIp(), Config.getMpcMainPort(), fFullCmdLine);
+                break;
+            case GROUP_List:
+                udp.send(Config.getMpcMainIp(), Config.getMpcMainPort(), fFullCmdLine);
                 break;
             case SCENARIO1_TEST:
             case SCENARIO2_TEST:
