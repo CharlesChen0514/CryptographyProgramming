@@ -77,8 +77,9 @@ public class Client {
 
     private void register() {
         try {
-            String cmd = String.format("%s@%s@%s:%d", username, CmdType.REGISTER.cmd,
-                    InetAddress.getLocalHost().getHostAddress(), Config.getClientPort());
+            String cmd = String.format("%s@%s@%s:%d:%d", username, CmdType.REGISTER.cmd,
+                    InetAddress.getLocalHost().getHostAddress(), Config.getClientPort(),
+                    Config.getMpcPort());
             udp.send(Config.getMpcMainIp(), Config.getMpcMainPort(), cmd);
         } catch (UnknownHostException e) {
             throw new RuntimeException(e);

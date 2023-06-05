@@ -8,6 +8,8 @@ import org.bitkernel.cryptography.RSAKeyPair;
 import org.bitkernel.user.CmdType;
 
 import java.math.BigInteger;
+import java.net.InetAddress;
+import java.net.UnknownHostException;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -18,6 +20,7 @@ public class MPCMain {
     private final Udp udp;
     /** group name -> group object */
     private final Map<String, Group> groupMap = new LinkedHashMap<>();
+    private final Map<String, MPC> mpcMap = new LinkedHashMap<>();
     private final Map<String, Pair<String, Integer>> userSocketAddrMap = new LinkedHashMap<>();
     private final String sysName = "mpc main";
 
@@ -31,6 +34,7 @@ public class MPCMain {
     }
 
     public void run() {
+        logger.debug("MPC Main start success");
         while (true) {
             String fullCmdLine = udp.receiveString();
             response(fullCmdLine);
@@ -54,6 +58,8 @@ public class MPCMain {
                 break;
             case GROUP_List:
                 getGroupNameList(userName);
+                break;
+            case SCENARIO1_TEST:
                 break;
             default:
         }
@@ -98,12 +104,23 @@ public class MPCMain {
         udp.send(socketAddr.getKey(), socketAddr.getValue(), cmd);
     }
 
-    private void registerUser(@NotNull String user, @NotNull String socketAddr) {
-        String[] split = socketAddr.split(":");
-        String ip = split[0].trim();
-        int port = Integer.parseInt(split[1]);
-        userSocketAddrMap.put(user, new Pair<>(ip, port));
-        logger.info("{} register successfully, its socket address is: {}", user, socketAddr);
+    private void registerUser(@NotNull String user, @NotNull String addr) {
+        String[] split = addr.split(":");
+        String clientIp = split[0].trim();
+        int clientPort = Integer.parseInt(split[1]);
+        userSocketAddrMap.put(user, new Pair<>(clientIp, clientPort));
+        logger.info(String.format("%s register successfully, its socket address is: %s:%s",
+                user, clientIp, clientPort));
+
+        int mpcPort = Integer.parseInt(split[2]);
+        MPC mpc = new MPC(mpcPort);
+        mpcMap.put(user, mpc);
+        try {
+            logger.info("start mpc instance successfully, its socket address is: {}:{}",
+                    InetAddress.getLocalHost().getHostAddress(), mpcPort);
+        } catch (UnknownHostException e) {
+            throw new RuntimeException(e);
+        }
     }
 
     /**
