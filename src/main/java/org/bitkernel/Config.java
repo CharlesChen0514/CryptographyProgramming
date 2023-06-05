@@ -20,6 +20,10 @@ public class Config {
     private static String mpcMainIp;
     @Getter
     private static int mpcPort;
+    @Getter
+    private static String storageGatewayIp;
+    @Getter
+    private static int storageGatewayPort ;
 
     static {
         Config.init();
@@ -48,7 +52,10 @@ public class Config {
         clientPort = Integer.parseInt(properties.getProperty("clientPort"));
         mpcPort = Integer.parseInt(properties.getProperty("mpcPort"));
 
-        mpcMainPort = Integer.parseInt(properties.getProperty("mpcMainPort"));
         mpcMainIp = properties.getProperty("mpcMainIp");
+        mpcMainPort = Integer.parseInt(properties.getProperty("mpcMainPort"));
+
+        storageGatewayIp = properties.getProperty("storageGatewayIp");
+        storageGatewayPort = Integer.parseInt(properties.getProperty("storageGatewayPort"));
     }
 }

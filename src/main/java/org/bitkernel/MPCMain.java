@@ -22,7 +22,6 @@ public class MPCMain {
     private final Map<String, Group> groupMap = new LinkedHashMap<>();
     private final Map<String, UserInfo> userInfoMap = new LinkedHashMap<>();
     private final String sysName = "mpc main";
-    private final StorageGateway storageGateway = new StorageGateway();
 
     public MPCMain() {
         udp = new Udp(Config.getMpcMainPort());
@@ -79,8 +78,13 @@ public class MPCMain {
         logger.debug("{}'s sum of d2: {}", groupName, sumD);
         if (g.getSumD1() != null && g.getSumD2() != null) {
             RSAKeyPair rsaKeyPair = generateRSAKeyPair(g.getSumD1(), g.getSumD2());
-            logger.debug("\nThe public key is {}", RSAUtil.getKeyEncodedBase64(rsaKeyPair.getPublicKey()));
-            logger.debug("\nThe private key is {}", RSAUtil.getKeyEncodedBase64(rsaKeyPair.getPrivateKey()));
+            String pubKey = RSAUtil.getKeyEncodedBase64(rsaKeyPair.getPublicKey());
+            String priKey = RSAUtil.getKeyEncodedBase64(rsaKeyPair.getPrivateKey());
+            String cmd = String.format("%s@%s@%s:%s:%s:%s",
+                    sysName, CmdType.STORE.cmd, g.getMember(), g.getUuid(), pubKey, priKey);
+            udp.send(Config.getStorageGatewayIp(), Config.getStorageGatewayPort(), cmd);
+            logger.debug("\nThe public key is {}", pubKey);
+            logger.debug("\nThe private key is {}", priKey);
         }
     }
 
@@ -91,8 +95,13 @@ public class MPCMain {
         logger.debug("{}'s sum of d1: {}", groupName, sumD);
         if (g.getSumD1() != null && g.getSumD2() != null) {
             RSAKeyPair rsaKeyPair = generateRSAKeyPair(g.getSumD1(), g.getSumD2());
-            logger.debug("\nThe public key is {}", RSAUtil.getKeyEncodedBase64(rsaKeyPair.getPublicKey()));
-            logger.debug("\nThe private key is {}", RSAUtil.getKeyEncodedBase64(rsaKeyPair.getPrivateKey()));
+            String pubKey = RSAUtil.getKeyEncodedBase64(rsaKeyPair.getPublicKey());
+            String priKey = RSAUtil.getKeyEncodedBase64(rsaKeyPair.getPrivateKey());
+            String cmd = String.format("%s@%s@%s:%s:%s:%s",
+                    sysName, CmdType.STORE.cmd, g.getMember(), g.getUuid(), pubKey, priKey);
+            udp.send(Config.getStorageGatewayIp(), Config.getStorageGatewayPort(), cmd);
+            logger.debug("\nThe public key is {}", pubKey);
+            logger.debug("\nThe private key is {}", priKey);
         }
     }
 

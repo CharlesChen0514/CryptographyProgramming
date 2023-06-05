@@ -10,11 +10,11 @@ import org.bitkernel.reedsolomon.robinliew.dealbytesinterface.IRSErasureCorrecti
 import org.bitkernel.reedsolomon.robinliew.dealbytesinterface.RSErasureCorrectionImpl;
 import org.bitkernel.cryptography.RSAKeyPair;
 import org.bitkernel.cryptography.RSAUtil;
+import org.bitkernel.user.CmdType;
 
 import java.nio.ByteBuffer;
 import java.security.PrivateKey;
 import java.security.PublicKey;
-import java.security.SecureRandom;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -23,21 +23,59 @@ public class StorageGateway {
     private final static int SLICE_NUM = 4;
     private final static int CHECK_NUM = 2;
     private final static int TOTAL_BLOCK_NUM = SLICE_NUM + CHECK_NUM;
-    /** Group tag -> public key, is only used as check */
+    /** Group uuid -> public key, is only used as check */
     @Getter
     private final Map<String, PublicKey> publicKeyMap = new LinkedHashMap<>();
-    /** Group tag -> private key, is only used as check */
+    /** Group uuid -> private key, is only used as check */
     @Getter
     private final Map<String, PrivateKey> privateKeyMap = new LinkedHashMap<>();
-    /** Group tag -> user name -> sub private key, is only used as check */
+    /** Group uuid -> user name -> sub private key, is only used as check */
     @Getter
     private final Map<String, Map<String, byte[]>> userSubPriKeyMap = new LinkedHashMap<>();
     private final Storage[] storages = new Storage[3];
+    private final Udp udp;
 
     public StorageGateway() {
         for (int i = 0; i < storages.length; i++) {
             storages[i] = new Storage();
         }
+        udp = new Udp(Config.getStorageGatewayPort());
+    }
+
+    public static void main(String[] args) {
+        StorageGateway storageGateway = new StorageGateway();
+        storageGateway.run();
+    }
+
+    public void run() {
+        logger.debug("StorageGateway start success");
+        while (true) {
+            String fullCmdLine = udp.receiveString();
+            response(fullCmdLine);
+        }
+    }
+
+    private void response(@NotNull String fullCmdLine) {
+        String[] split = fullCmdLine.split("@");
+        String name = split[0];
+        String msg = split[2];
+        CmdType type = CmdType.cmdToEnumMap.get(split[1].trim());
+        switch (type) {
+            case STORE:
+                store(msg);
+                break;
+            default:
+        }
+    }
+
+    private void store(@NotNull String msg) {
+        String[] split = msg.split(":");
+        String substring = split[0].substring(1, split[0].length() - 1);
+        List<String> member = Arrays.asList(substring.split(","));
+        String uuid = split[1].trim();
+        PublicKey publicKey = RSAUtil.getPublicKey(split[2].trim());
+        PrivateKey privateKey = RSAUtil.getPrivateKey(split[3].trim());
+        store(member, uuid, new RSAKeyPair(publicKey, privateKey));
     }
 
     public void randomDestroyProvider() {
@@ -72,7 +110,7 @@ public class StorageGateway {
         boolean res = true;
 
         for (int i = 0; i < group.size(); i++) {
-            String userName = group.get(i);
+            String userName = group.get(i).trim();
             List<DataBlock> remainBlocks = workingStorages.stream()
                     .map(s -> s.getPriKeyDataBlocks(groupTag, userName))
                     .flatMap(Collection::stream).collect(Collectors.toList());
@@ -117,14 +155,14 @@ public class StorageGateway {
      * store the public key and private key
      */
     public void store(@NotNull List<String> group,
-                      @NotNull String groupTag,
+                      @NotNull String groupUuid,
                       @NotNull RSAKeyPair rsAKeyPair) {
         // use as a check
-        publicKeyMap.put(groupTag, rsAKeyPair.getPublicKey());
-        privateKeyMap.put(groupTag, rsAKeyPair.getPrivateKey());
+        publicKeyMap.put(groupUuid, rsAKeyPair.getPublicKey());
+        privateKeyMap.put(groupUuid, rsAKeyPair.getPrivateKey());
 
-        storePriKey(group, groupTag, rsAKeyPair.getPrivateKey());
-        storePubKey(groupTag, rsAKeyPair.getPublicKey());
+        storePriKey(group, groupUuid, rsAKeyPair.getPrivateKey());
+        storePubKey(groupUuid, rsAKeyPair.getPublicKey());
     }
 
     private void storePriKey(@NotNull List<String> group,
@@ -132,7 +170,7 @@ public class StorageGateway {
                              @NotNull PrivateKey privateKey) {
         List<byte[]> subPriKey = getPriKeySlicing(privateKey, group.size());
         for (int i = 0; i < subPriKey.size(); i++) {
-            String userName = group.get(i);
+            String userName = group.get(i).trim();
             // use as a check
             userSubPriKeyMap.putIfAbsent(groupTag, new LinkedHashMap<>());
             userSubPriKeyMap.get(groupTag).put(userName, subPriKey.get(i));
@@ -377,19 +415,6 @@ public class StorageGateway {
             pos += dataBlockBytes.length;
         }
         return validBytes;
-    }
-
-    public static void main(String[] args) {
-        byte[] bytes = new byte[100];
-        new SecureRandom().nextBytes(bytes);
-        StorageGateway gateway = new StorageGateway();
-        List<DataBlock> slices = gateway.slice(0, bytes, 3);
-        byte[] newBytes = gateway.parse(slices);
-        String str1 = new String(bytes);
-        String str2 = new String(newBytes);
-        if (str1.equals(str2)) {
-            System.out.println("Combine success");
-        }
     }
 }
 
