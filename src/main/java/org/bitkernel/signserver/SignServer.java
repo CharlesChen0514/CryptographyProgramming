@@ -3,7 +3,7 @@ package org.bitkernel.signserver;
 import com.sun.istack.internal.NotNull;
 import javafx.util.Pair;
 import lombok.extern.slf4j.Slf4j;
-import org.bitkernel.StorageGateway;
+import org.bitkernel.storage.StorageGateway;
 import org.bitkernel.cryptography.AESUtil;
 import org.bitkernel.cryptography.RSAKeyPair;
 import org.bitkernel.cryptography.RSAUtil;
@@ -60,7 +60,7 @@ public class SignServer {
         String msg = split[1].trim();
         logger.debug("[{}] initiates a signature request with message [{}]", source, msg);
 
-        Pair<Integer, byte[]> subPriKey = storageGateway.getSubPriKey(source, groupTag);
+        Pair<Integer, byte[]> subPriKey = storageGateway.getSubPriKey(groupTag, source);
         PublicKey pubKey = storageGateway.getPubKey(groupTag);
         int groupMemberNum = Integer.parseInt(groupTag.substring(0, 1));
         SignRequest signRequest = new SignRequest(source, groupTag, msg,
@@ -86,7 +86,7 @@ public class SignServer {
         byte[] decrypt = AESUtil.decrypt(encryptReq, secretKey);
         String groupTag = new String(decrypt);
 
-        Pair<Integer, byte[]> subPriKey = storageGateway.getSubPriKey(source, groupTag);
+        Pair<Integer, byte[]> subPriKey = storageGateway.getSubPriKey(groupTag, source);
         SignRequest signRequest = signRequestMap.get(groupTag);
         signRequest.addSubPriKey(source, subPriKey);
         logger.debug("[{}] authorized the signature request", source);

@@ -1,8 +1,10 @@
-package org.bitkernel;
+package org.bitkernel.mpc;
 
 import com.sun.istack.internal.NotNull;
 import lombok.extern.slf4j.Slf4j;
-import org.bitkernel.user.CmdType;
+import org.bitkernel.common.Config;
+import org.bitkernel.common.Udp;
+import org.bitkernel.common.CmdType;
 
 import java.math.BigInteger;
 

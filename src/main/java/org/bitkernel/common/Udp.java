@@ -1,4 +1,4 @@
-package org.bitkernel;
+package org.bitkernel.common;
 
 import com.sun.istack.internal.NotNull;
 import com.sun.istack.internal.Nullable;
@@ -16,6 +16,7 @@ public class Udp {
     private static final int BUFF_LEN = 4096;
     @Getter
     private int port;
+    @Getter
     private DatagramSocket socket;
 
     public Udp(int port) {
@@ -41,6 +42,12 @@ public class Udp {
     public void send(@NotNull String ip, int port,
                      @NotNull String dataStr) {
         byte[] bytes = dataStr.getBytes();
+        send(ip, port, bytes);
+    }
+
+    public void send(@NotNull String ip, int port,
+                     @NotNull byte[] bytes) {
+        String dataStr = new String(bytes);
         InetSocketAddress socAddr = new InetSocketAddress(ip, port);
         DatagramPacket packet = new DatagramPacket(bytes, 0, bytes.length, socAddr);
         try {
@@ -48,6 +55,18 @@ public class Udp {
             logger.debug("UDP send data [{}] to {} success", dataStr, socAddr);
         } catch (IOException e) {
             logger.debug("UDP send data [{}] to {} failed", dataStr, socAddr);
+        }
+    }
+
+    public void send(@NotNull DatagramPacket pkt,
+                     @NotNull String dataStr) {
+        byte[] bytes = dataStr.getBytes();
+        DatagramPacket packet = new DatagramPacket(bytes, 0, bytes.length, pkt.getSocketAddress());
+        try {
+            socket.send(packet);
+            logger.debug("UDP send data [{}] to {} success", dataStr, pkt.getSocketAddress());
+        } catch (IOException e) {
+            logger.debug("UDP send data [{}] to {} failed", dataStr, pkt.getSocketAddress());
         }
     }
 

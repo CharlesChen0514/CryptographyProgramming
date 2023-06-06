@@ -1,12 +1,16 @@
-package org.bitkernel;
+package org.bitkernel.mpc;
 
 import com.sun.istack.internal.NotNull;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.Setter;
 import lombok.extern.slf4j.Slf4j;
+import org.bitkernel.common.Config;
+import org.bitkernel.common.Udp;
 import org.bitkernel.cryptography.RSAKeyPair;
-import org.bitkernel.user.CmdType;
+import org.bitkernel.cryptography.RSAUtil;
+import org.bitkernel.common.CmdType;
+import org.bitkernel.storage.StorageGateway;
 
 import java.math.BigInteger;
 import java.util.*;
@@ -21,9 +25,11 @@ public class MPCMain {
     private final Map<String, Group> groupMap = new LinkedHashMap<>();
     private final Map<String, UserInfo> userInfoMap = new LinkedHashMap<>();
     private final String sysName = "mpc main";
+    private final StorageGateway storageGateway;
 
     public MPCMain() {
         udp = new Udp(Config.getMpcMainPort());
+        storageGateway = new StorageGateway();
     }
 
     public static void main(String[] args) {
@@ -72,14 +78,28 @@ public class MPCMain {
 
     private void setSumD2(@NotNull String groupName, @NotNull String msg) {
         BigInteger sumD = computeSumD(groupName, msg);
-        groupMap.get(groupName).setSumD2(sumD);
+        Group g = groupMap.get(groupName);
+        g.setSumD2(sumD);
         logger.debug("{}'s sum of d2: {}", groupName, sumD);
+        if (g.getSumD1() != null && g.getSumD2() != null) {
+            RSAKeyPair rsaKeyPair = generateRSAKeyPair(g.getSumD1(), g.getSumD2());
+            storageGateway.store(g.getMember(), g.getUuid(), rsaKeyPair);
+            logger.debug("\nThe public key is {}", RSAUtil.getKeyEncodedBase64(rsaKeyPair.getPublicKey()));
+            logger.debug("\nThe private key is {}", RSAUtil.getKeyEncodedBase64(rsaKeyPair.getPrivateKey()));
+        }
     }
 
     private void setSumD1(@NotNull String groupName, @NotNull String msg) {
         BigInteger sumD = computeSumD(groupName, msg);
-        groupMap.get(groupName).setSumD1(sumD);
+        Group g = groupMap.get(groupName);
+        g.setSumD1(sumD);
         logger.debug("{}'s sum of d1: {}", groupName, sumD);
+        if (g.getSumD1() != null && g.getSumD2() != null) {
+            RSAKeyPair rsaKeyPair = generateRSAKeyPair(g.getSumD1(), g.getSumD2());
+            storageGateway.store(g.getMember(), g.getUuid(), rsaKeyPair);
+            logger.debug("\nThe public key is {}", RSAUtil.getKeyEncodedBase64(rsaKeyPair.getPublicKey()));
+            logger.debug("\nThe private key is {}", RSAUtil.getKeyEncodedBase64(rsaKeyPair.getPrivateKey()));
+        }
     }
 
     @NotNull
@@ -159,6 +179,10 @@ public class MPCMain {
     }
 
     private void registerUser(@NotNull String user, @NotNull String addr) {
+        if (userInfoMap.containsKey(user)) {
+            logger.debug("{} online", user);
+            return;
+        }
         String[] split = addr.split(":");
         String clientIp = split[0].trim();
         int clientPort = Integer.parseInt(split[1]);
@@ -168,41 +192,6 @@ public class MPCMain {
         userInfoMap.put(user, info);
         logger.info(String.format("%s register successfully, its socket address: %s:%s, mpc port: %s, r: %s",
                 user, clientIp, clientPort, mpcPort, r));
-    }
-
-    /**
-     * generate the message transfer path randomly
-     *
-     * @param users user group
-     * @return transfer path, e.g. [2, 1, 3] : 2 -> 1 -> 3
-     */
-    @NotNull
-    public List<Integer> generatePath(@NotNull User[] users) {
-        List<Integer> path = new ArrayList<>();
-        for (int i = 0; i < users.length; i++) {
-            path.add(i);
-        }
-        Collections.shuffle(path);
-        printPath(path, users);
-        return path;
-    }
-
-    /**
-     * Print the transfer path by name
-     *
-     * @param path the transfer path by index
-     */
-    @NotNull
-    public static void printPath(@NotNull List<Integer> path,
-                                 @NotNull User[] group) {
-        StringBuilder sb = new StringBuilder();
-        for (int idx : path) {
-            User user = group[idx];
-            sb.append(user.getName()).append("->");
-        }
-        sb.deleteCharAt(sb.length() - 1);
-        sb.deleteCharAt(sb.length() - 1);
-        logger.debug("The SMPC transfer path is: {}", sb);
     }
 
     @NotNull
@@ -215,38 +204,6 @@ public class MPCMain {
         sb.deleteCharAt(sb.length() - 1);
         sb.deleteCharAt(sb.length() - 1);
         logger.debug("The SMPC transfer path is: {}", sb);
-    }
-
-    /**
-     * @param x       the aggregate value by D and R
-     * @param rValues R value list
-     * @return the sum of D
-     */
-    @NotNull
-    public BigInteger getSumD(@NotNull BigInteger x,
-                              @NotNull BigInteger... rValues) {
-        BigInteger sumD = new BigInteger(x.toByteArray());
-        for (BigInteger r : rValues) {
-            sumD = sumD.subtract(r);
-        }
-        return sumD;
-    }
-
-    /**
-     * Join all username by '@' to generate a group tag
-     *
-     * @return group tag
-     */
-    @NotNull
-    public String generateGroupTag(@NotNull User[] users) {
-        StringBuilder sb = new StringBuilder();
-        sb.append(users.length).append("@");
-        for (User user : users) {
-            sb.append(user.getName()).append("@");
-        }
-        sb.deleteCharAt(sb.length() - 1);
-        logger.debug("Generate a group tag is {}", sb);
-        return sb.toString();
     }
 
     /**

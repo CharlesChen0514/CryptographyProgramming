@@ -1,4 +1,4 @@
-package org.bitkernel.user;
+package org.bitkernel.common;
 
 import com.sun.istack.internal.NotNull;
 import lombok.AllArgsConstructor;
@@ -23,7 +23,13 @@ public enum CmdType {
     SMPC_1("-smpc_1", "SMPC", "-smpc_1@idx:path:X"),
     SMPC_2("-smpc_2", "SMPC", "-smpc_2@idx:path:X"),
     BASE_D1("-base1", "", "-base1@sumD1"),
-    BASE_D2("-base2", "", "-base2@sumD2");
+    BASE_D2("-base2", "", "-base2@sumD2"),
+
+    HEART_BEAT("-hb", "", "-hb@ "),
+    PUT_PUB_KEY_BLOCK("-ppkb1", "", "-ppkb1@groupUuid:block"),
+    PUT_PRI_KEY_BLOCK("-ppkb2", "", "-ppkb2@groupUuid:userName:block"),
+    GET_PUB_KEY_BLOCKS("-gpkb1", "", "-gpkb1@groupUuid"),
+    GET_PRI_KEY_BLOCKS("-gpkb2", "", "-gpkb2@groupUuid:userName");
 
     public final String cmd;
     public final String description;

@@ -20,6 +20,11 @@ public class RSAKeyPair {
     @Getter
     private PrivateKey privateKey;
 
+    public RSAKeyPair(@NotNull PublicKey publicKey, @NotNull PrivateKey privateKey) {
+        this.publicKey = publicKey;
+        this.privateKey = privateKey;
+    }
+
     public RSAKeyPair(@NotNull BigInteger p, @NotNull BigInteger q) {
         generateKeyPair(p, q);
     }
