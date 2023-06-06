@@ -29,6 +29,16 @@ public class Udp {
         }
     }
 
+    public Udp() {
+        try {
+            socket = new DatagramSocket();
+            this.port = socket.getLocalPort();
+        } catch (SocketException e) {
+            logger.error("Attempt to bind udp port {} failed", port);
+            System.exit(-1);
+        }
+    }
+
     public static boolean checkPort(int port) {
         try  (DatagramSocket socket = new DatagramSocket(port)){
             logger.debug("Udp port {} is available", port);

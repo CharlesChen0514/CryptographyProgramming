@@ -36,7 +36,7 @@ public class StorageGateway {
     private final String sysName = "gate way";
 
     public StorageGateway() {
-        udp = new Udp(Config.getStorageGatewayPort());
+        udp = new Udp();
         try {
             udp.getSocket().setSoTimeout(500);
         } catch (SocketException e) {
