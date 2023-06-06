@@ -38,6 +38,10 @@ public class Config {
     private static String storage3Ip;
     @Getter
     private static int storage3Port;
+    @Getter
+    private static String signServerIp;
+    @Getter
+    private static int signServerPort;
 
 
     static {
@@ -81,6 +85,9 @@ public class Config {
 
         storage3Ip = properties.getProperty("storage3Ip");
         storage3Port = Integer.parseInt(properties.getProperty("storage3Port"));
+
+        signServerIp = properties.getProperty("signServerIp");
+        signServerPort = Integer.parseInt(properties.getProperty("signServerPort"));
     }
 
     @NotNull

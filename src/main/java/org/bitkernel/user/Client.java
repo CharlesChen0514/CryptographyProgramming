@@ -5,15 +5,20 @@ import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import org.bitkernel.common.CmdType;
 import org.bitkernel.common.Config;
+import org.bitkernel.cryptography.AESUtil;
+import org.bitkernel.cryptography.RSAUtil;
 import org.bitkernel.mpc.MPC;
 import org.bitkernel.common.Udp;
 import org.bitkernel.enigma.Enigma;
 
+import javax.crypto.SecretKey;
 import java.math.BigInteger;
 import java.net.DatagramPacket;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
+import java.security.PublicKey;
 import java.security.SecureRandom;
+import java.util.Arrays;
 import java.util.Scanner;
 
 @Slf4j
@@ -31,6 +36,9 @@ public class Client {
     /** 128-bit random bit integer "R" */
     @Getter
     private final BigInteger r;
+    /** Symmetric Key */
+    private final SecretKey secretKey;
+
     public Client(@NotNull String username,
                   @NotNull String key) {
         this.username = username;
@@ -48,6 +56,7 @@ public class Client {
         d2Str = enigma.encode(key);
         logger.debug(String.format("[%s's] key is [%s], d1 string is [%s], d2 string is [%s]",
                 username, key, d1Str, d2Str));
+        this.secretKey = AESUtil.generateKey();
     }
 
     public static void main(String[] args) {
@@ -57,8 +66,8 @@ public class Client {
         String key = in.next();
 
         Client client = new Client(userName, key);
-        client.startLocalService();
         client.register();
+        client.startLocalService();
         client.guide();
     }
 
@@ -92,10 +101,25 @@ public class Client {
 
     private void register() {
         try {
+            // register to MPC Main
             String cmd = String.format("%s@%s@%s:%d:%d:%s", username, CmdType.REGISTER.cmd,
                     InetAddress.getLocalHost().getHostAddress(), Config.getClientPort(),
                     Config.getMpcPort(), r);
             udp.send(Config.getMpcMainIp(), Config.getMpcMainPort(), cmd);
+
+            // register to sign server
+            cmd = String.format("%s@%s@ ", username, CmdType.GET_PUB_KEY.cmd);
+            udp.send(Config.getSignServerIp(), Config.getSignServerPort(), cmd);
+            String pubkeyString = udp.receiveString();
+            PublicKey publicKey = RSAUtil.getPublicKey(pubkeyString);
+            byte[] encrypt = RSAUtil.encrypt(secretKey.getEncoded(), publicKey);
+            cmd = String.format("%s@%s@%s", username, CmdType.REGISTER.cmd, Arrays.toString(encrypt));
+            udp.send(Config.getSignServerIp(), Config.getSignServerPort(), cmd);
+            if (udp.receiveString().equals("OK")) {
+                logger.debug("Register to sign server success");
+            } else {
+                logger.error("Register to sign server failed");
+            }
         } catch (UnknownHostException e) {
             throw new RuntimeException(e);
         }
@@ -134,14 +158,8 @@ public class Client {
         CmdType type = CmdType.cmdToEnumMap.get(split[1].trim());
         switch (type) {
             case CREATE_GROUP:
-                udp.send(Config.getMpcMainIp(), Config.getMpcMainPort(), fFullCmdLine);
-                break;
             case JOIN_GROUP:
-                udp.send(Config.getMpcMainIp(), Config.getMpcMainPort(), fFullCmdLine);
-                break;
             case GROUP_List:
-                udp.send(Config.getMpcMainIp(), Config.getMpcMainPort(), fFullCmdLine);
-                break;
             case SCENARIO1_TEST:
                 udp.send(Config.getMpcMainIp(), Config.getMpcMainPort(), fFullCmdLine);
                 break;

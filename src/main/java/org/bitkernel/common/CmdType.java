@@ -29,7 +29,9 @@ public enum CmdType {
     PUT_PUB_KEY_BLOCK("-ppkb1", "", "-ppkb1@groupUuid:block"),
     PUT_PRI_KEY_BLOCK("-ppkb2", "", "-ppkb2@groupUuid:userName:block"),
     GET_PUB_KEY_BLOCKS("-gpkb1", "", "-gpkb1@groupUuid"),
-    GET_PRI_KEY_BLOCKS("-gpkb2", "", "-gpkb2@groupUuid:userName");
+    GET_PRI_KEY_BLOCKS("-gpkb2", "", "-gpkb2@groupUuid:userName"),
+
+    GET_PUB_KEY("-gpk", "", "-gpk@ ");
 
     public final String cmd;
     public final String description;
