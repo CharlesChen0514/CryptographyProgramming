@@ -142,10 +142,15 @@ public class MPCMain {
     }
 
     private void getGroupNameList(@NotNull String userName) {
-        List<String> names = groupMap.values().stream().filter(g -> g.contains(userName))
-                .map(Group::getName).collect(Collectors.toList());
-        String msg = String.format("The group you are in has: %s", names);
-        sendToUser(userName, msg);
+        List<Group> groupList = groupMap.values().stream().filter(g -> g.contains(userName))
+                .collect(Collectors.toList());
+        StringBuilder sb = new StringBuilder("The group you are in has:\n");
+        for (int i = 0; i < groupList.size(); i++) {
+            Group g = groupList.get(i);
+            sb.append("\t").append(i).append(") ").append(g.getName())
+                    .append(", ").append(g.getUuid()).append(System.lineSeparator());
+        }
+        sendToUser(userName, sb.toString());
     }
 
     private void joinGroup(@NotNull String user, @NotNull String groupUuid) {
