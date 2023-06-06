@@ -106,16 +106,22 @@ public class SignServer {
         String[] split = plainText.split(":");
         String groupUuid = split[0].trim();
         String content = split[1].trim();
-        logger.debug("[{}] initiates a signature request with message [{}]", userName, content);
 
         Pair<Integer, byte[]> subPriKey = storageGateway.getSubPriKey(groupUuid, userName);
-        PublicKey pubKey = storageGateway.getPubKey(groupUuid);
-        udp.send(Config.getMpcMainIp(), Config.getMpcMainPort(),
-                String.format("%s@%s@%s", sysName, CmdType.GROUP_NUMBER.cmd, groupUuid));
-        int groupMemberNum = Integer.parseInt(udp.receiveString());
-        SignRequest signRequest = new SignRequest(userName, groupUuid, content,
-                groupMemberNum, subPriKey, pubKey);
-        signRequestMap.put(groupUuid, signRequest);
+        if(signRequestMap.containsKey(groupUuid)) {
+            SignRequest signRequest = signRequestMap.get(groupUuid);
+            signRequest.addSubPriKey(userName, subPriKey);
+            logger.debug("[{}] authorized a signature request with message [{}]", userName, content);
+        } else {
+            PublicKey pubKey = storageGateway.getPubKey(groupUuid);
+            udp.send(Config.getMpcMainIp(), Config.getMpcMainPort(),
+                    String.format("%s@%s@%s", sysName, CmdType.GROUP_NUMBER.cmd, groupUuid));
+            int groupMemberNum = Integer.parseInt(udp.receiveString());
+            SignRequest signRequest = new SignRequest(userName, groupUuid, content,
+                    groupMemberNum, subPriKey, pubKey);
+            signRequestMap.put(groupUuid, signRequest);
+            logger.debug("[{}] initiates a signature request with message [{}]", userName, content);
+        }
     }
 
     /**
