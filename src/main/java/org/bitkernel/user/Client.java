@@ -38,6 +38,7 @@ public class Client {
     private final BigInteger r;
     /** Symmetric Key */
     private final SecretKey secretKey;
+    private MPC mpc;
 
     public Client(@NotNull String username,
                   @NotNull String key) {
@@ -45,7 +46,7 @@ public class Client {
         this.rootKey = key;
 
         enigma = new Enigma(Config.getAlphabets(), Config.getPositions());
-        udp = new Udp(Config.getClientPort());
+        udp = new Udp();
 
         byte[] rBytes = new byte[16];
         new SecureRandom().nextBytes(rBytes);
@@ -57,6 +58,7 @@ public class Client {
         logger.debug(String.format("[%s's] key is [%s], d1 string is [%s], d2 string is [%s]",
                 username, key, d1Str, d2Str));
         this.secretKey = AESUtil.generateKey();
+        mpc = new MPC(getDWithR(d1Str), getDWithR(d2Str));
     }
 
     public static void main(String[] args) {
@@ -88,9 +90,9 @@ public class Client {
         t1.start();
         logger.debug("start udp receiver successfully");
 
-        Thread t2 = new Thread(new MPC(Config.getMpcPort(), getDWithR(d1Str), getDWithR(d2Str)));
+        Thread t2 = new Thread(mpc);
         t2.start();
-        logger.info("start mpc instance successfully, its socket port is: {}", Config.getMpcPort());
+        logger.info("start mpc instance successfully, its socket port is: {}", mpc.getUdp().getPort());
     }
 
     @NotNull
@@ -103,8 +105,8 @@ public class Client {
         try {
             // register to MPC Main
             String cmd = String.format("%s@%s@%s:%d:%d:%s", username, CmdType.REGISTER.cmd,
-                    InetAddress.getLocalHost().getHostAddress(), Config.getClientPort(),
-                    Config.getMpcPort(), r);
+                    InetAddress.getLocalHost().getHostAddress(), udp.getPort(),
+                    mpc.getUdp().getPort(), r);
             udp.send(Config.getMpcMainIp(), Config.getMpcMainPort(), cmd);
             if (udp.receiveString().equals("OK")) {
                 logger.debug("Register to MPC Main success");
