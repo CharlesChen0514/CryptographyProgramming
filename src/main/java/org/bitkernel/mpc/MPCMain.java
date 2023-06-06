@@ -47,7 +47,7 @@ public class MPCMain {
         }
     }
 
-    private void response(DatagramPacket pkt, @NotNull String fullCmdLine) {
+    private void response(@NotNull DatagramPacket pkt, @NotNull String fullCmdLine) {
         String[] split = fullCmdLine.split("@");
         String name = split[0];
         String msg = split[2];
@@ -74,8 +74,17 @@ public class MPCMain {
             case BASE_D2:
                 setSumD2(name, msg);
                 break;
+            case GROUP_NUMBER:
+                getGroupNumber(pkt, msg);
+                break;
             default:
         }
+    }
+
+    private void getGroupNumber(@NotNull DatagramPacket pkt, @NotNull String groupUuid) {
+        Group group = groupMap.values().stream().
+                filter(g -> g.getUuid().equals(groupUuid)).findFirst().get();
+        udp.send(pkt, String.valueOf(group.getMember().size()));
     }
 
     private void setSumD2(@NotNull String groupName, @NotNull String msg) {

@@ -33,7 +33,8 @@ public enum CmdType {
     GET_PUB_KEY_BLOCKS("-gpkb1", "", "-gpkb1@groupUuid"),
     GET_PRI_KEY_BLOCKS("-gpkb2", "", "-gpkb2@groupUuid:userName"),
 
-    GET_PUB_KEY("-gpk", "", "-gpk@ ");
+    GET_PUB_KEY("-gpk", "", "-gpk@ "),
+    GROUP_NUMBER("-gn", "", "-gn@ ");
 
     public final String cmd;
     public final String description;

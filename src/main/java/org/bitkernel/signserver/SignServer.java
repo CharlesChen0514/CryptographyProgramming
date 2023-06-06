@@ -26,6 +26,7 @@ public class SignServer {
     private final Map<String, SecretKey> secretKeyMap = new LinkedHashMap<>();
     private final Udp udp;
     private final StorageGateway storageGateway = new StorageGateway();
+    private final String sysName = "sign server";
 
     public SignServer() {
         udp = new Udp(Config.getSignServerPort());
@@ -109,7 +110,9 @@ public class SignServer {
 
         Pair<Integer, byte[]> subPriKey = storageGateway.getSubPriKey(groupUuid, userName);
         PublicKey pubKey = storageGateway.getPubKey(groupUuid);
-        int groupMemberNum = Integer.parseInt(groupUuid.substring(0, 1));
+        udp.send(Config.getMpcMainIp(), Config.getMpcMainPort(),
+                String.format("%s@%s@%s", sysName, CmdType.GROUP_NUMBER.cmd, groupUuid));
+        int groupMemberNum = Integer.parseInt(udp.receiveString());
         SignRequest signRequest = new SignRequest(userName, groupUuid, content,
                 groupMemberNum, subPriKey, pubKey);
         signRequestMap.put(groupUuid, signRequest);
