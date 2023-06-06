@@ -34,6 +34,10 @@ public class Config {
     private static String signServerIp;
     @Getter
     private static int signServerPort;
+    @Getter
+    private static String blockChainSysIp;
+    @Getter
+    private static int blockChainSysPort;
 
 
     static {
@@ -74,6 +78,9 @@ public class Config {
 
         signServerIp = properties.getProperty("signServerIp");
         signServerPort = Integer.parseInt(properties.getProperty("signServerPort"));
+
+        blockChainSysIp = properties.getProperty("blockChainSysIp");
+        blockChainSysPort = Integer.parseInt(properties.getProperty("blockChainSysPort"));
     }
 
     @NotNull

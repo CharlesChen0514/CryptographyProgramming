@@ -3,6 +3,7 @@ package org.bitkernel.signserver;
 import com.sun.istack.internal.NotNull;
 import javafx.util.Pair;
 import lombok.extern.slf4j.Slf4j;
+import org.bitkernel.Letter;
 import org.bitkernel.cryptography.RSAUtil;
 
 import java.security.MessageDigest;
@@ -48,16 +49,16 @@ public class SignRequest {
         subPriKeyList.add(subPriKey);
     }
 
-//    @NotNull
-//    public Letter getLetter() {
-//        MessageDigest md = getMessageDigestInstance();
-//        byte[] hash = md.digest(msg.getBytes());
-//
-//        PrivateKey privateKey = constructPriKey();
-//        byte[] signature = RSAUtil.encrypt(hash, privateKey);
-//
-//        return new Letter(msg, signature, publicKey);
-//    }
+    @NotNull
+    public Letter getLetter() {
+        MessageDigest md = getMessageDigestInstance();
+        byte[] hash = md.digest(messages.toString().getBytes());
+
+        PrivateKey privateKey = constructPriKey();
+        byte[] signature = RSAUtil.encrypt(hash, privateKey);
+
+        return new Letter(messages, signature, publicKey);
+    }
 
     public static MessageDigest getMessageDigestInstance() {
         MessageDigest md = null;

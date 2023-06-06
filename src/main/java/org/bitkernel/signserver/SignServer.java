@@ -3,6 +3,7 @@ package org.bitkernel.signserver;
 import com.sun.istack.internal.NotNull;
 import javafx.util.Pair;
 import lombok.extern.slf4j.Slf4j;
+import org.bitkernel.Letter;
 import org.bitkernel.common.CmdType;
 import org.bitkernel.common.Config;
 import org.bitkernel.common.Udp;
@@ -108,8 +109,9 @@ public class SignServer {
         String content = split[1].trim();
 
         Pair<Integer, byte[]> subPriKey = storageGateway.getSubPriKey(groupUuid, userName);
+        SignRequest signRequest;
         if(signRequestMap.containsKey(groupUuid)) {
-            SignRequest signRequest = signRequestMap.get(groupUuid);
+            signRequest = signRequestMap.get(groupUuid);
             signRequest.addSubPriKey(userName, subPriKey);
             logger.debug("[{}] authorized a signature request with message [{}]", userName, content);
         } else {
@@ -117,40 +119,16 @@ public class SignServer {
             udp.send(Config.getMpcMainIp(), Config.getMpcMainPort(),
                     String.format("%s@%s@%s", sysName, CmdType.GROUP_NUMBER.cmd, groupUuid));
             int groupMemberNum = Integer.parseInt(udp.receiveString());
-            SignRequest signRequest = new SignRequest(userName, groupUuid, content,
+            signRequest = new SignRequest(userName, groupUuid, content,
                     groupMemberNum, subPriKey, pubKey);
             signRequestMap.put(groupUuid, signRequest);
             logger.debug("[{}] initiates a signature request with message [{}]", userName, content);
         }
-    }
-
-    /**
-     * Authorized a signature request
-     * @param source user name
-     * @param encryptReq encrypted authorized request message via ASE key
-     * @return If the authorized user meet the requirement, return the
-     * SignRequest Object, otherwise return null
-     */
-    public SignRequest authorized(@NotNull String source, @NotNull byte[] encryptReq,
-                                  @NotNull StorageGateway storageGateway) {
-        logger.debug("Sign server accept a cipher text: {}", encryptReq);
-        if (!secretKeyMap.containsKey(source)) {
-            logger.error("Secret key not found, please register first");
-            return null;
-        }
-        SecretKey secretKey = secretKeyMap.get(source);
-        byte[] decrypt = AESUtil.decrypt(encryptReq, secretKey);
-        String groupTag = new String(decrypt);
-
-        Pair<Integer, byte[]> subPriKey = storageGateway.getSubPriKey(groupTag, source);
-        SignRequest signRequest = signRequestMap.get(groupTag);
-        signRequest.addSubPriKey(source, subPriKey);
-        logger.debug("[{}] authorized the signature request", source);
 
         if (signRequest.isFullyAuthorized()) {
             logger.debug("All users has authorized the sign request");
-            return signRequest;
+            Letter letter = signRequest.getLetter();
+            udp.send(Config.getBlockChainSysIp(), Config.getBlockChainSysPort(), letter.toString());
         }
-        return null;
     }
 }
