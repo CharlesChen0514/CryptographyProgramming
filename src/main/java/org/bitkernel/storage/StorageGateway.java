@@ -4,6 +4,7 @@ import com.sun.istack.internal.NotNull;
 import javafx.util.Pair;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
+import org.bitkernel.common.CmdType;
 import org.bitkernel.common.Config;
 import org.bitkernel.common.Udp;
 import org.bitkernel.reedsolomon.robinliew.dealbytesinterface.IRSErasureCorrection;
@@ -11,6 +12,7 @@ import org.bitkernel.reedsolomon.robinliew.dealbytesinterface.RSErasureCorrectio
 import org.bitkernel.cryptography.RSAKeyPair;
 import org.bitkernel.cryptography.RSAUtil;
 
+import java.net.SocketException;
 import java.security.PrivateKey;
 import java.security.PublicKey;
 import java.util.*;
@@ -30,24 +32,15 @@ public class StorageGateway {
     /** Group uuid -> user name -> sub private key, is only used as check */
     @Getter
     private final Map<String, Map<String, byte[]>> userSubPriKeyMap = new LinkedHashMap<>();
-    private final Storage[] storages = new Storage[3];
     private final Udp udp;
+    private final String sysName = "gate way";
 
     public StorageGateway() {
-        for (int i = 0; i < storages.length; i++) {
-            storages[i] = new Storage();
-        }
         udp = new Udp(Config.getStorageGatewayPort());
-    }
-
-    public void randomDestroyProvider() {
-        while (true) {
-            int idx = new Random().nextInt(3);
-            if (storages[idx].isWork()) {
-                storages[idx].setWork(false);
-                logger.debug("The {}th storage provider has been destroyed", idx);
-                break;
-            }
+        try {
+            udp.getSocket().setSoTimeout(500);
+        } catch (SocketException e) {
+            throw new RuntimeException(e);
         }
     }
 
@@ -68,13 +61,13 @@ public class StorageGateway {
                                        @NotNull String groupTag,
                                        @NotNull PrivateKey privateKey) {
         List<byte[]> subPriKeys = getPriKeySlicing(privateKey, group.size());
-        List<Storage> workingStorages = getWorkingStorages();
+        List<Integer> workingStorageIdList = getWorkingStorageIdxs();
         boolean res = true;
 
         for (int i = 0; i < group.size(); i++) {
             String userName = group.get(i).trim();
-            List<DataBlock> remainBlocks = workingStorages.stream()
-                    .map(s -> s.getPriKeyDataBlocks(groupTag, userName))
+            List<DataBlock> remainBlocks = workingStorageIdList.stream()
+                    .map(id -> getPriKeyDataBlocks(id, groupTag, userName))
                     .flatMap(Collection::stream).collect(Collectors.toList());
             String sliceStr = new String(combine(remainBlocks));
 
@@ -90,11 +83,11 @@ public class StorageGateway {
         return res;
     }
 
-    private boolean checkRecoverPubKey(@NotNull String groupTag,
+    private boolean checkRecoverPubKey(@NotNull String groupUuid,
                                        @NotNull PublicKey pubKey) {
         // get the remaining data block string
-        List<Storage> workingStorages = getWorkingStorages();
-        List<DataBlock> remainBlocks = workingStorages.stream().map(s -> s.getPubKeyBlock(groupTag))
+        List<Integer> workingStorageIdList = getWorkingStorageIdxs();
+        List<DataBlock> remainBlocks = workingStorageIdList.stream().map(id -> getPubKeyBlocks(id, groupUuid))
                 .flatMap(Collection::stream).collect(Collectors.toList());
         String sliceStr = new String(combine(remainBlocks));
 
@@ -141,12 +134,12 @@ public class StorageGateway {
         }
     }
 
-    private void storePubKey(@NotNull String groupTag,
+    private void storePubKey(@NotNull String groupUuid,
                             @NotNull PublicKey pubKey) {
         String pubKeyEncodedBase64 = RSAUtil.getKeyEncodedBase64(pubKey);
         byte[] bytes = pubKeyEncodedBase64.getBytes();
         List<DataBlock> dataBlocks = generateDataBlocks(0, bytes);
-        storePubKeyBlock(groupTag, dataBlocks);
+        storePubKeyBlock(groupUuid, dataBlocks);
         logger.debug("Successfully store the public key");
     }
 
@@ -161,31 +154,80 @@ public class StorageGateway {
 
     private void storePriKeyBlock(@NotNull String groupTag, @NotNull String userName,
                                   @NotNull List<DataBlock> dataBlocks) {
-        List<Storage> workingStorages = getWorkingStorages();
-        int perNum = dataBlocks.size() / workingStorages.size();
-        for (int i = 0; i < workingStorages.size(); i++) {
-            Storage storage = workingStorages.get(i);
+        List<Integer> workingStorageIdxList = getWorkingStorageIdxs();
+        int perNum = dataBlocks.size() / workingStorageIdxList.size();
+        for (int i = 0; i < workingStorageIdxList.size(); i++) {
+            int storageIdx = workingStorageIdxList.get(i);
             for (int j = 0; j < perNum; j++) {
-                storage.putPriKeyBlock(groupTag, userName, dataBlocks.get(i * perNum + j));
+                int blockId = i * perNum + j;
+                DataBlock dataBlock = dataBlocks.get(blockId);
+                if (putPriKeyBlock(storageIdx, groupTag, userName, dataBlock)) {
+                    logger.debug("Store the {}th pri key data block success, block length: {}",
+                            blockId, dataBlock.getBytes().length);
+                } else {
+                    logger.error("Store the {}th pri key data block failed", blockId);
+                }
             }
         }
     }
 
-    private void storePubKeyBlock(@NotNull String groupTag, @NotNull List<DataBlock> dataBlocks) {
-        List<Storage> workingStorages = getWorkingStorages();
-        int perNum = dataBlocks.size() / workingStorages.size();
-        for (int i = 0; i < workingStorages.size(); i++) {
-            Storage storage = workingStorages.get(i);
+    private boolean putPriKeyBlock(int idx, @NotNull String groupUuid,
+                                   @NotNull String userName, @NotNull DataBlock dataBlock) {
+        String ip = Config.getStorageIp(idx);
+        int port = Config.getStoragePort(idx);
+        String cmd = String.format("%s@%s@%s:%s:%s", sysName, CmdType.PUT_PRI_KEY_BLOCK.cmd,
+                groupUuid, userName, Arrays.toString(dataBlock.getBytes()));
+        udp.send(ip, port, cmd);
+        String rsp = udp.receiveString();
+        return rsp.equals("TRUE");
+    }
+
+    private void storePubKeyBlock(@NotNull String groupUuid,
+                                  @NotNull List<DataBlock> dataBlocks) {
+        List<Integer> workingStorageIdxList = getWorkingStorageIdxs();
+        int perNum = dataBlocks.size() / workingStorageIdxList.size();
+        for (int i = 0; i < workingStorageIdxList.size(); i++) {
+            int storageIdx = workingStorageIdxList.get(i);
             for (int j = 0; j < perNum; j++) {
-                storage.putPubKeyBlock(groupTag, dataBlocks.get(i * perNum + j));
+                int blockId = i * perNum + j;
+                DataBlock dataBlock = dataBlocks.get(blockId);
+                if (putPubKeyBlock(storageIdx, groupUuid, dataBlock)) {
+                    logger.debug("Store the {}th pub key data block success, block length: {}",
+                            blockId, dataBlock.getBytes().length);
+                } else {
+                    logger.error("Store the {}th pub key data block failed", blockId);
+                }
             }
         }
+    }
+
+    private boolean putPubKeyBlock(int idx, @NotNull String groupUuid,
+                                   @NotNull DataBlock dataBlock) {
+        String ip = Config.getStorageIp(idx);
+        int port = Config.getStoragePort(idx);
+        String cmd = String.format("%s@%s@%s:%s",
+                sysName, CmdType.PUT_PUB_KEY_BLOCK.cmd, groupUuid, Arrays.toString(dataBlock.getBytes()));
+        udp.send(ip, port, cmd);
+        String rsp = udp.receiveString();
+        return rsp.equals("TRUE");
     }
 
     @NotNull
-    private List<Storage> getWorkingStorages() {
-        return Arrays.stream(storages).filter(Storage::isWork)
-                .collect(Collectors.toList());
+    private List<Integer> getWorkingStorageIdxs() {
+        List<Integer> idxs = new ArrayList<>();
+        for (int i = 1; i <= 3; i++) {
+            String ip = Config.getStorageIp(i);
+            int port = Config.getStoragePort(i);
+            String msg = String.format("%s@%s@ ", sysName, CmdType.HEART_BEAT.cmd);
+            udp.send(ip, port, msg);
+            String rsp = udp.receiveString();
+            if (rsp.equals("ALIVE")) {
+                idxs.add(i);
+            } else {
+                logger.error("Storage{} is not working", i);
+            }
+        }
+        return idxs;
     }
 
     /**
@@ -257,39 +299,66 @@ public class StorageGateway {
     }
 
     @NotNull
-    public PublicKey getPubKey(@NotNull String groupTag) {
+    public PublicKey getPubKey(@NotNull String groupUuid) {
         DataBlock[] dataBlocks = new DataBlock[TOTAL_BLOCK_NUM];
-        for (int i = 0; i < storages.length; i++) {
-            Storage storage = storages[i];
-            if (!storage.isWork()) {
-                logger.error("Current storage provider is not working, failed to get public key blocks");
-                continue;
+        List<Integer> workingStorageIdList = getWorkingStorageIdxs();
+        for (int idx : workingStorageIdList) {
+            List<DataBlock> blocks = getPubKeyBlocks(idx, groupUuid);
+            for (DataBlock block: blocks) {
+                dataBlocks[block.getBlockId()] = block;
             }
-            List<DataBlock> blocks = storage.getPubKeyBlock(groupTag);
-            dataBlocks[i * 2] = blocks.get(0);
-            dataBlocks[i * 2 + 1] = blocks.get(1);
         }
         byte[] bytes = reedSolomonCheck(dataBlocks);
         return RSAUtil.getPublicKey(new String(bytes));
     }
 
     @NotNull
-    public Pair<Integer, byte[]> getSubPriKey(@NotNull String userName,
-                                              @NotNull String groupTag) {
+    private List<DataBlock> getPubKeyBlocks(int idx, @NotNull String groupUuid) {
+        String ip = Config.getStorageIp(idx);
+        int port = Config.getStoragePort(idx);
+        String cmd = String.format("%s@%s@%s", sysName, CmdType.GET_PUB_KEY_BLOCKS.cmd, groupUuid);
+        udp.send(ip, port, cmd);
+        String rsp = udp.receiveString();
+        return convertToDataBlocks(rsp);
+    }
+
+    @NotNull
+    public Pair<Integer, byte[]> getSubPriKey(@NotNull String groupUuid,
+                                              @NotNull String userName) {
         DataBlock[] dataBlocks = new DataBlock[TOTAL_BLOCK_NUM];
-        for (int i = 0; i < storages.length; i++) {
-            Storage storage = storages[i];
-            if (!storage.isWork()) {
-                logger.error("Current storage provider is not working, failed to get the sub-private key blocks");
-                continue;
+        List<Integer> workingStorageIdList = getWorkingStorageIdxs();
+        for (int idx : workingStorageIdList) {
+            List<DataBlock> blocks = getPriKeyDataBlocks(idx, groupUuid, userName);
+            for (DataBlock block : blocks) {
+                dataBlocks[block.getBlockId()] = block;
             }
-            List<DataBlock> blocks = storage.getPriKeyDataBlocks(groupTag, userName);
-            dataBlocks[i * 2] = blocks.get(0);
-            dataBlocks[i * 2 + 1] = blocks.get(1);
         }
         int belongKeyId = Arrays.stream(dataBlocks).filter(Objects::nonNull)
                 .findFirst().get().getBelongKeyId();
         return new Pair<>(belongKeyId, reedSolomonCheck(dataBlocks));
+    }
+
+    @NotNull
+    private List<DataBlock> getPriKeyDataBlocks(int idx, @NotNull String groupUuid,
+                                                @NotNull String userName) {
+        String ip = Config.getStorageIp(idx);
+        int port = Config.getStoragePort(idx);
+        String cmd = String.format("%s@%s@%s:%s", sysName,
+                CmdType.GET_PRI_KEY_BLOCKS.cmd, groupUuid, userName);
+        udp.send(ip, port, cmd);
+        String rsp = udp.receiveString();
+        return convertToDataBlocks(rsp);
+    }
+
+    @NotNull
+    private static List<DataBlock> convertToDataBlocks(String rsp) {
+        String[] split = rsp.split(":");
+        List<DataBlock> dataBlocks = new ArrayList<>();
+        for (String blockStr : split) {
+            DataBlock block = new DataBlock(blockStr.getBytes());
+            dataBlocks.add(block);
+        }
+        return dataBlocks;
     }
 
     /**
