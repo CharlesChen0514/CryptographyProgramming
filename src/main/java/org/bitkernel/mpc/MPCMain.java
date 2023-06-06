@@ -150,6 +150,7 @@ public class MPCMain {
             sb.append("\t").append(i).append(") ").append(g.getName())
                     .append(", ").append(g.getUuid()).append(System.lineSeparator());
         }
+        sb.deleteCharAt(sb.length() - 1);
         sendToUser(userName, sb.toString());
     }
 
@@ -158,25 +159,29 @@ public class MPCMain {
                 .filter(g -> g.getUuid().equals(groupUuid)).findFirst();
         String msg;
         if (!first.isPresent()) {
-            msg = String.format("Non-existent group of uuid [%s]", groupUuid);
+            msg = groupUuid;
         } else {
             Group group = first.get();
             group.join(user);
-            msg = String.format("join group [%s] success", group.getName());
+            msg = String.format("%s:%s", group.getName(), group.getUuid());
         }
-        sendToUser(user, msg);
+        String cmd = String.format("%s@%s@%s", sysName, CmdType.GROUP_ID.cmd, msg);
+        UserInfo userInfo = userInfoMap.get(user);
+        udp.send(userInfo.getIp(), userInfo.getUserPort(), cmd);
     }
 
     private void createGroup(@NotNull String user, @NotNull String groupName) {
         String msg;
         if (groupMap.containsKey(groupName)) {
-            msg = String.format("create group [%s] failed", groupName);
+            msg = groupName;
         } else {
             Group g = new Group(user, groupName);
             groupMap.put(groupName, g);
-            msg = String.format("create group [%s] success, uuid: %s", groupName, g.getUuid());
+            msg = String.format("%s:%s", groupName, g.getUuid());
         }
-        sendToUser(user, msg);
+        String cmd = String.format("%s@%s@%s", sysName, CmdType.GROUP_ID.cmd, msg);
+        UserInfo userInfo = userInfoMap.get(user);
+        udp.send(userInfo.getIp(), userInfo.getUserPort(), cmd);
     }
 
     private void sendToUser(@NotNull String user, @NotNull String msg) {

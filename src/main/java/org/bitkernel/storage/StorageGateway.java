@@ -351,11 +351,22 @@ public class StorageGateway {
     }
 
     @NotNull
-    private static List<DataBlock> convertToDataBlocks(String rsp) {
+    private static byte[] stringToByteArray(@NotNull String str) {
+        String[] strArray = str.replaceAll("[\\[\\]\\s]", "").split(",");
+        byte[] byteArray = new byte[strArray.length];
+        for (int i = 0; i < strArray.length; i++) {
+            byteArray[i] = Byte.parseByte(strArray[i]);
+        }
+        return byteArray;
+    }
+
+    @NotNull
+    private static List<DataBlock> convertToDataBlocks(@NotNull String rsp) {
         String[] split = rsp.split(":");
         List<DataBlock> dataBlocks = new ArrayList<>();
         for (String blockStr : split) {
-            DataBlock block = new DataBlock(blockStr.getBytes());
+            byte[] bytes = stringToByteArray(blockStr);
+            DataBlock block = new DataBlock(bytes);
             dataBlocks.add(block);
         }
         return dataBlocks;

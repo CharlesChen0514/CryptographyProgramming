@@ -15,10 +15,12 @@ public enum CmdType {
     JOIN_GROUP("-j", "join a group", "-j@groupUuid"),
     GROUP_List("-gl", "query the groups you are in", "-gl"),
     SCENARIO1_TEST("-s1t", "scenario 1 test", "-s1t@groupName"),
-    SCENARIO2_TEST("-s2t", "scenario 2 test", "-s2t@groupName"),
+    SCENARIO2_TEST("-s2t", "scenario 2 test", "-s2t@groupName:msg"),
     SCENARIO3_TEST("-s3t", "scenario 3 test", "-s3t@groupName"),
     RESPONSE("-rsp", "response message", "-rsp@msg"),
     EXIT("-q", "exit", "-q"),
+    HELP("-h", "help", "-h"),
+    GROUP_ID("-gi", "", "-gi@groupName:uuid"),
 
     SMPC_1("-smpc_1", "SMPC", "-smpc_1@idx:path:X"),
     SMPC_2("-smpc_2", "SMPC", "-smpc_2@idx:path:X"),

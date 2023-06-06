@@ -25,6 +25,7 @@ public class SignServer {
     /** user name -> symmetric key */
     private final Map<String, SecretKey> secretKeyMap = new LinkedHashMap<>();
     private final Udp udp;
+    private final StorageGateway storageGateway = new StorageGateway();
 
     public SignServer() {
         udp = new Udp(Config.getSignServerPort());
@@ -56,6 +57,8 @@ public class SignServer {
             case REGISTER:
                 register(pkt, name, msg);
                 break;
+            case SCENARIO2_TEST:
+                newSignRequest(pkt, name, msg);
             default:
         }
     }
@@ -87,31 +90,29 @@ public class SignServer {
 
     /**
      * Initiates a signature request
-     * @param source user name
-     * @param encryptReq encrypted signature request message via ASE key
      */
-    public void newSignRequest(@NotNull String source, @NotNull byte[] encryptReq,
-                               @NotNull StorageGateway storageGateway) {
-        logger.debug("Sign server accept a cipher text: {}", encryptReq);
-        if (!secretKeyMap.containsKey(source)) {
+    private void newSignRequest(@NotNull DatagramPacket pkt, @NotNull String userName,
+                                @NotNull String msg) {
+        byte[] encrypted = StringToByteArray(msg);
+        logger.debug("Sign server accept a cipher text: {}", encrypted);
+        if (!secretKeyMap.containsKey(userName)) {
             logger.error("Secret key not found, please register first");
             return;
         }
-        SecretKey secretKey = secretKeyMap.get(source);
-        byte[] decrypt = AESUtil.decrypt(encryptReq, secretKey);
-        String signReqString = new String(decrypt);
-        String[] split = signReqString.split("-");
 
-        String groupTag = split[0].trim();
-        String msg = split[1].trim();
-        logger.debug("[{}] initiates a signature request with message [{}]", source, msg);
+        SecretKey secretKey = secretKeyMap.get(userName);
+        String plainText = new String(AESUtil.decrypt(encrypted, secretKey));
+        String[] split = plainText.split(":");
+        String groupUuid = split[0].trim();
+        String content = split[1].trim();
+        logger.debug("[{}] initiates a signature request with message [{}]", userName, content);
 
-        Pair<Integer, byte[]> subPriKey = storageGateway.getSubPriKey(groupTag, source);
-        PublicKey pubKey = storageGateway.getPubKey(groupTag);
-        int groupMemberNum = Integer.parseInt(groupTag.substring(0, 1));
-        SignRequest signRequest = new SignRequest(source, groupTag, msg,
+        Pair<Integer, byte[]> subPriKey = storageGateway.getSubPriKey(groupUuid, userName);
+        PublicKey pubKey = storageGateway.getPubKey(groupUuid);
+        int groupMemberNum = Integer.parseInt(groupUuid.substring(0, 1));
+        SignRequest signRequest = new SignRequest(userName, groupUuid, content,
                 groupMemberNum, subPriKey, pubKey);
-        signRequestMap.put(groupTag, signRequest);
+        signRequestMap.put(groupUuid, signRequest);
     }
 
     /**
