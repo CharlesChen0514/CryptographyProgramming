@@ -106,6 +106,11 @@ public class Client {
                     InetAddress.getLocalHost().getHostAddress(), Config.getClientPort(),
                     Config.getMpcPort(), r);
             udp.send(Config.getMpcMainIp(), Config.getMpcMainPort(), cmd);
+            if (udp.receiveString().equals("OK")) {
+                logger.debug("Register to MPC Main success");
+            } else {
+                logger.error("Register to MPC Main failed");
+            }
 
             // register to sign server
             cmd = String.format("%s@%s@ ", username, CmdType.GET_PUB_KEY.cmd);

@@ -13,6 +13,7 @@ import org.bitkernel.common.CmdType;
 import org.bitkernel.storage.StorageGateway;
 
 import java.math.BigInteger;
+import java.net.DatagramPacket;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -40,19 +41,20 @@ public class MPCMain {
     public void run() {
         logger.debug("MPC Main start success");
         while (true) {
-            String fullCmdLine = udp.receiveString();
-            response(fullCmdLine);
+            DatagramPacket pkt = udp.receivePkt();
+            String fullCmdLine = udp.pktToString(pkt);
+            response(pkt, fullCmdLine);
         }
     }
 
-    private void response(@NotNull String fullCmdLine) {
+    private void response(DatagramPacket pkt, @NotNull String fullCmdLine) {
         String[] split = fullCmdLine.split("@");
         String name = split[0];
         String msg = split[2];
         CmdType type = CmdType.cmdToEnumMap.get(split[1].trim());
         switch (type) {
             case REGISTER:
-                registerUser(name, msg);
+                registerUser(pkt, name, msg);
                 break;
             case CREATE_GROUP:
                 createGroup(name, msg);
@@ -178,7 +180,7 @@ public class MPCMain {
         udp.send(userInfo.getIp(), userInfo.getUserPort(), cmd);
     }
 
-    private void registerUser(@NotNull String user, @NotNull String addr) {
+    private void registerUser(DatagramPacket pkt, @NotNull String user, @NotNull String addr) {
         if (userInfoMap.containsKey(user)) {
             logger.debug("{} online", user);
             return;
@@ -192,6 +194,7 @@ public class MPCMain {
         userInfoMap.put(user, info);
         logger.info(String.format("%s register successfully, its socket address: %s:%s, mpc port: %s, r: %s",
                 user, clientIp, clientPort, mpcPort, r));
+        udp.send(pkt, "OK");
     }
 
     @NotNull
