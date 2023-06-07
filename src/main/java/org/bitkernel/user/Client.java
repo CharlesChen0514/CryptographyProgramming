@@ -195,6 +195,8 @@ public class Client {
                 scenario2Test(fFullCmdLine);
                 break;
             case SCENARIO3_TEST:
+                scenario3Test(fFullCmdLine);
+                break;
             case HELP:
                 CmdType.menu.forEach(System.out::println);
                 break;
@@ -203,6 +205,17 @@ public class Client {
                 break;
             default:
         }
+    }
+
+    private void scenario3Test(@NotNull String fFullCmdLine) {
+        String[] split = fFullCmdLine.split("@");
+        if (split.length != 3 || !groupUuidMap.containsKey(split[2])) {
+            System.out.println("Command error, please re-entered");
+            return;
+        }
+        split[2] = Arrays.toString(AESUtil.encrypt(groupUuidMap.get(split[2]).getBytes(), secretKey));
+        String join = StringUtils.join(split, "@");
+        udp.send(Config.getSignServerIp(), Config.getSignServerPort(), join);
     }
 
     private void scenario2Test(@NotNull String fFullCmdLine) {

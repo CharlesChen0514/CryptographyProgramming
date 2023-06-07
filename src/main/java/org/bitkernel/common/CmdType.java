@@ -24,8 +24,6 @@ public enum CmdType {
 
     SMPC_1("-smpc_1", "SMPC", "-smpc_1@idx:path:X"),
     SMPC_2("-smpc_2", "SMPC", "-smpc_2@idx:path:X"),
-    BASE_D1("-base1", "", "-base1@sumD1"),
-    BASE_D2("-base2", "", "-base2@sumD2"),
 
     HEART_BEAT("-hb", "", "-hb@ "),
     PUT_PUB_KEY_BLOCK("-ppkb1", "", "-ppkb1@groupUuid:block"),

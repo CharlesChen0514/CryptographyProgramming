@@ -62,13 +62,7 @@ public class MPC implements Runnable {
 
         int nextId = curId + 1;
         if (nextId == path.length) {
-            String rsp;
-            if (type == 1) {
-                rsp = String.format("%s@%s@%s", groupName, CmdType.BASE_D1.cmd, add);
-            } else {
-                rsp = String.format("%s@%s@%s", groupName, CmdType.BASE_D2.cmd, add);
-            }
-            udp.send(Config.getMpcMainIp(), Config.getMpcMainPort(), rsp);
+            udp.send(Config.getMpcMainIp(), Config.getMpcMainPort(), add.toString());
         } else {
             String next = path[nextId];
             String[] address = next.split(",");

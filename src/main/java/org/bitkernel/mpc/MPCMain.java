@@ -68,12 +68,6 @@ public class MPCMain {
             case SCENARIO1_TEST:
                 generateTransferPath(msg);
                 break;
-            case BASE_D1:
-                setSumD1(name, msg);
-                break;
-            case BASE_D2:
-                setSumD2(name, msg);
-                break;
             case GROUP_NUMBER:
                 getGroupNumber(pkt, msg);
                 break;
@@ -85,32 +79,6 @@ public class MPCMain {
         Group group = groupMap.values().stream().
                 filter(g -> g.getUuid().equals(groupUuid)).findFirst().get();
         udp.send(pkt, String.valueOf(group.getMember().size()));
-    }
-
-    private void setSumD2(@NotNull String groupName, @NotNull String msg) {
-        BigInteger sumD = computeSumD(groupName, msg);
-        Group g = groupMap.get(groupName);
-        g.setSumD2(sumD);
-        logger.debug("{}'s sum of d2: {}", groupName, sumD);
-        if (g.getSumD1() != null && g.getSumD2() != null) {
-            RSAKeyPair rsaKeyPair = generateRSAKeyPair(g.getSumD1(), g.getSumD2());
-            storageGateway.store(g.getMember(), g.getUuid(), rsaKeyPair);
-            logger.debug("\nThe public key is {}", RSAUtil.getKeyEncodedBase64(rsaKeyPair.getPublicKey()));
-            logger.debug("\nThe private key is {}", RSAUtil.getKeyEncodedBase64(rsaKeyPair.getPrivateKey()));
-        }
-    }
-
-    private void setSumD1(@NotNull String groupName, @NotNull String msg) {
-        BigInteger sumD = computeSumD(groupName, msg);
-        Group g = groupMap.get(groupName);
-        g.setSumD1(sumD);
-        logger.debug("{}'s sum of d1: {}", groupName, sumD);
-        if (g.getSumD1() != null && g.getSumD2() != null) {
-            RSAKeyPair rsaKeyPair = generateRSAKeyPair(g.getSumD1(), g.getSumD2());
-            storageGateway.store(g.getMember(), g.getUuid(), rsaKeyPair);
-            logger.debug("\nThe public key is {}", RSAUtil.getKeyEncodedBase64(rsaKeyPair.getPublicKey()));
-            logger.debug("\nThe private key is {}", RSAUtil.getKeyEncodedBase64(rsaKeyPair.getPrivateKey()));
-        }
     }
 
     @NotNull
@@ -125,15 +93,15 @@ public class MPCMain {
     }
 
     private void generateTransferPath(@NotNull String groupName) {
-        Group group = groupMap.get(groupName);
+        Group g = groupMap.get(groupName);
         List<Integer> path = new ArrayList<>();
-        for (int i = 0; i < group.getMember().size(); i++) {
+        for (int i = 0; i < g.getMember().size(); i++) {
             path.add(i);
         }
         Collections.shuffle(path);
-        printPath(path, group.getMember());
+        printPath(path, g.getMember());
 
-        List<String> namePath = path.stream().map(idx -> group.getMember().get(idx))
+        List<String> namePath = path.stream().map(idx -> g.getMember().get(idx))
                 .collect(Collectors.toList());
         StringBuilder sb = new StringBuilder();
         for(String name: namePath) {
@@ -143,11 +111,25 @@ public class MPCMain {
         }
         sb.deleteCharAt(sb.length() - 1);
 
+        // get sum d1
         String msg1 = String.format("%s@%s@%d:%s:%s", groupName, CmdType.SMPC_1.cmd, 0, sb, 0);
-        String msg2 = String.format("%s@%s@%d:%s:%s", groupName, CmdType.SMPC_2.cmd, 0, sb, 0);
         UserInfo userInfo = userInfoMap.get(namePath.get(0));
         udp.send(userInfo.getIp(), userInfo.getMpcPort(), msg1);
-        udp.send(userInfo.getIp(), userInfo.getMpcPort(), msg2);
+        BigInteger sumD1 = computeSumD(groupName, udp.receiveString());
+        g.setSumD1(sumD1);
+        logger.debug("{}'s sum of d1: {}", groupName, sumD1);
+
+        // get sum d2
+        msg1 = String.format("%s@%s@%d:%s:%s", groupName, CmdType.SMPC_2.cmd, 0, sb, 0);
+        udp.send(userInfo.getIp(), userInfo.getMpcPort(), msg1);
+        BigInteger sumD2 = computeSumD(groupName, udp.receiveString());
+        g.setSumD2(sumD2);
+        logger.debug("{}'s sum of d1: {}", groupName, sumD2);
+
+        RSAKeyPair rsaKeyPair = generateRSAKeyPair(g.getSumD1(), g.getSumD2());
+        storageGateway.store(g.getMember(), g.getUuid(), rsaKeyPair);
+        logger.debug("\nThe public key is {}", RSAUtil.getKeyEncodedBase64(rsaKeyPair.getPublicKey()));
+        logger.debug("\nThe private key is {}", RSAUtil.getKeyEncodedBase64(rsaKeyPair.getPrivateKey()));
     }
 
     private void getGroupNameList(@NotNull String userName) {
