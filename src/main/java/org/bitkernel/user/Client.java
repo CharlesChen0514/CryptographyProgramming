@@ -31,47 +31,24 @@ public class Client {
     private final Enigma enigma;
     private boolean isRunning = true;
     private final Udp udp;
-    private final String rootKey;
-    @Getter
-    private final String d1Str;
-    @Getter
-    private final String d2Str;
-    /** 128-bit random bit integer "R" */
-    @Getter
-    private final BigInteger r;
     /** Symmetric Key */
     private final SecretKey secretKey;
     private final MPC mpc;
     private final Map<String, String> groupUuidMap = new LinkedHashMap<>();
 
-    public Client(@NotNull String username,
-                  @NotNull String key) {
+    public Client(@NotNull String username) {
         this.username = username;
-        this.rootKey = key;
-
         enigma = new Enigma(Config.getAlphabets(), Config.getPositions());
         udp = new Udp();
-
-        byte[] rBytes = new byte[16];
-        new SecureRandom().nextBytes(rBytes);
-        r = new BigInteger(rBytes);
-        logger.debug("The 128-bit random bit integer is [{}]", r);
-
-        d1Str = enigma.encode(key);
-        d2Str = enigma.encode(key);
-        logger.debug(String.format("[%s's] key is [%s], d1 string is [%s], d2 string is [%s]",
-                username, key, d1Str, d2Str));
         this.secretKey = AESUtil.generateKey();
-        mpc = new MPC(getDWithR(d1Str), getDWithR(d2Str));
+        mpc = new MPC();
     }
 
     public static void main(String[] args) {
         System.out.print("Please input username: ");
         String userName = in.next();
-        System.out.print("Please input key of length 8: ");
-        String key = in.next();
 
-        Client client = new Client(userName, key);
+        Client client = new Client(userName);
         client.register();
         client.startLocalService();
         client.guide();
@@ -115,18 +92,12 @@ public class Client {
         }
     }
 
-    @NotNull
-    public BigInteger getDWithR(@NotNull String dString) {
-        BigInteger d = new BigInteger(dString.getBytes());
-        return r.add(d);
-    }
-
     private void register() {
         try {
             // register to MPC Main
-            String cmd = String.format("%s@%s@%s:%d:%d:%s", username, CmdType.REGISTER.cmd,
+            String cmd = String.format("%s@%s@%s:%d:%d", username, CmdType.REGISTER.cmd,
                     InetAddress.getLocalHost().getHostAddress(), udp.getPort(),
-                    mpc.getUdp().getPort(), r);
+                    mpc.getUdp().getPort());
             udp.send(Config.getMpcMainIp(), Config.getMpcMainPort(), cmd);
             if (udp.receiveString().equals("OK")) {
                 logger.debug("Register to MPC Main success");
@@ -188,8 +159,10 @@ public class Client {
             case CREATE_GROUP:
             case JOIN_GROUP:
             case GROUP_List:
-            case SCENARIO1_TEST:
                 udp.send(Config.getMpcMainIp(), Config.getMpcMainPort(), fFullCmdLine);
+                break;
+            case GENERATE_RSA_KEY_PAIR:
+                scenario1Test(fFullCmdLine);
                 break;
             case SCENARIO2_TEST:
                 scenario2Test(fFullCmdLine);
@@ -207,13 +180,34 @@ public class Client {
         }
     }
 
+    private void scenario1Test(@NotNull String fFullCmdLine) {
+        System.out.print("Please input key of length 8: ");
+        String key = in.next();
+        in.nextLine();
+
+        byte[] rBytes = new byte[16];
+        new SecureRandom().nextBytes(rBytes);
+        BigInteger r = new BigInteger(rBytes);
+        logger.debug("The 128-bit random bit integer is [{}]", r);
+
+        String d1Str = enigma.encode(key);
+        String d2Str = enigma.encode(key);
+        logger.debug(String.format("[%s's] key is [%s], d1 string is [%s], d2 string is [%s]",
+                username, key, d1Str, d2Str));
+        mpc.setRPlusD1(r.add(new BigInteger(d1Str.getBytes())));
+        mpc.setRPlusD2(r.add(new BigInteger(d2Str.getBytes())));
+        logger.debug("rPlusD1: {}, rPlusD2: {}", mpc.getRPlusD1(), mpc.getRPlusD2());
+
+        udp.send(Config.getMpcMainIp(), Config.getMpcMainPort(), fFullCmdLine + ":" + r);
+    }
+
     private void scenario3Test(@NotNull String fFullCmdLine) {
         String[] split = fFullCmdLine.split("@");
         if (split.length != 3 || !groupUuidMap.containsKey(split[2])) {
             System.out.println("Command error, please re-entered");
             return;
         }
-        split[2] = Arrays.toString(AESUtil.encrypt(groupUuidMap.get(split[2]).getBytes(), secretKey));
+        split[2] = groupUuidMap.get(split[2]);
         String join = StringUtils.join(split, "@");
         udp.send(Config.getSignServerIp(), Config.getSignServerPort(), join);
     }

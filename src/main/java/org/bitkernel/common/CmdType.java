@@ -14,7 +14,7 @@ public enum CmdType {
     CREATE_GROUP("-c", "create a group", "-c@groupName"),
     JOIN_GROUP("-j", "join a group", "-j@groupUuid"),
     GROUP_List("-gl", "query the groups you are in", "-gl"),
-    SCENARIO1_TEST("-s1t", "scenario 1 test", "-s1t@groupName"),
+    GENERATE_RSA_KEY_PAIR("-s1t", "scenario 1 test", "-s1t@groupName"),
     SCENARIO2_TEST("-s2t", "scenario 2 test", "-s2t@groupName:msg"),
     SCENARIO3_TEST("-s3t", "scenario 3 test", "-s3t@groupName"),
     RESPONSE("-rsp", "response message", "-rsp@msg"),
@@ -51,7 +51,7 @@ public enum CmdType {
         menu.add(CREATE_GROUP);
         menu.add(JOIN_GROUP);
         menu.add(GROUP_List);
-        menu.add(SCENARIO1_TEST);
+        menu.add(GENERATE_RSA_KEY_PAIR);
         menu.add(SCENARIO2_TEST);
         menu.add(SCENARIO3_TEST);
         menu.add(EXIT);

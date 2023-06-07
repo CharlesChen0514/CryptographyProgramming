@@ -1,7 +1,7 @@
 package org.bitkernel.mpc;
 
 import com.sun.istack.internal.NotNull;
-import lombok.AllArgsConstructor;
+import javafx.util.Pair;
 import lombok.Getter;
 import lombok.Setter;
 import lombok.extern.slf4j.Slf4j;
@@ -65,8 +65,8 @@ public class MPCMain {
             case GROUP_List:
                 getGroupNameList(name);
                 break;
-            case SCENARIO1_TEST:
-                generateTransferPath(msg);
+            case GENERATE_RSA_KEY_PAIR:
+                generateRsaKeyPair(name, msg);
                 break;
             case GROUP_NUMBER:
                 getGroupNumber(pkt, msg);
@@ -92,7 +92,8 @@ public class MPCMain {
         return x;
     }
 
-    private void generateTransferPath(@NotNull String groupName) {
+    @NotNull
+    private Pair<String,String> generateTransferPath(@NotNull String groupName) {
         Group g = groupMap.get(groupName);
         List<Integer> path = new ArrayList<>();
         for (int i = 0; i < g.getMember().size(); i++) {
@@ -110,21 +111,46 @@ public class MPCMain {
             sb.append("-");
         }
         sb.deleteCharAt(sb.length() - 1);
+        return new Pair<>(namePath.get(0), sb.toString());
+    }
 
-        // get sum d1
-        String msg1 = String.format("%s@%s@%d:%s:%s", groupName, CmdType.SMPC_1.cmd, 0, sb, 0);
-        UserInfo userInfo = userInfoMap.get(namePath.get(0));
+    @NotNull
+    private BigInteger getSumD1(@NotNull String groupName, @NotNull Pair<String, String> path) {
+        String msg1 = String.format("%s@%s@%d:%s:%s", sysName, CmdType.SMPC_1.cmd, 0, path.getValue(), 0);
+        UserInfo userInfo = userInfoMap.get(path.getKey());
         udp.send(userInfo.getIp(), userInfo.getMpcPort(), msg1);
-        BigInteger sumD1 = computeSumD(groupName, udp.receiveString());
-        g.setSumD1(sumD1);
-        logger.debug("{}'s sum of d1: {}", groupName, sumD1);
+        return computeSumD(groupName, udp.receiveString());
+    }
 
-        // get sum d2
-        msg1 = String.format("%s@%s@%d:%s:%s", groupName, CmdType.SMPC_2.cmd, 0, sb, 0);
+    @NotNull
+    private BigInteger getSumD2(@NotNull String groupName, @NotNull Pair<String, String> path) {
+        String msg1 = String.format("%s@%s@%d:%s:%s", sysName, CmdType.SMPC_2.cmd, 0, path.getValue(), 0);
+        UserInfo userInfo = userInfoMap.get(path.getKey());
         udp.send(userInfo.getIp(), userInfo.getMpcPort(), msg1);
-        BigInteger sumD2 = computeSumD(groupName, udp.receiveString());
-        g.setSumD2(sumD2);
-        logger.debug("{}'s sum of d1: {}", groupName, sumD2);
+        return computeSumD(groupName, udp.receiveString());
+    }
+
+    private boolean already(@NotNull Group g) {
+        return g.getMember().stream().allMatch(m -> userInfoMap.get(m).getR() != null);
+    }
+
+    private void generateRsaKeyPair(@NotNull String userName, @NotNull String msg) {
+        String[] split = msg.split(":");
+        String groupName = split[0];
+        BigInteger r = new BigInteger(split[1]);
+        userInfoMap.get(userName).setR(r);
+        Group g = groupMap.get(groupName);
+
+        if (!already(g)) {
+            logger.debug("Not already");
+            return;
+        }
+
+        Pair<String, String> path = generateTransferPath(groupName);
+        g.setSumD1(getSumD1(groupName, path));
+        logger.debug("{}'s sum of d1: {}", groupName, g.getSumD1());
+        g.setSumD2(getSumD2(groupName, path));
+        logger.debug("{}'s sum of d1: {}", groupName, g.getSumD2());
 
         RSAKeyPair rsaKeyPair = generateRSAKeyPair(g.getSumD1(), g.getSumD2());
         storageGateway.store(g.getMember(), g.getUuid(), rsaKeyPair);
@@ -190,11 +216,10 @@ public class MPCMain {
         String clientIp = split[0].trim();
         int clientPort = Integer.parseInt(split[1]);
         int mpcPort = Integer.parseInt(split[2]);
-        BigInteger r = new BigInteger(split[3]);
-        UserInfo info = new UserInfo(clientIp, clientPort, mpcPort, r);
+        UserInfo info = new UserInfo(clientIp, clientPort, mpcPort);
         userInfoMap.put(user, info);
-        logger.info(String.format("%s register successfully, its socket address: %s:%s, mpc port: %s, r: %s",
-                user, clientIp, clientPort, mpcPort, r));
+        logger.info(String.format("%s register successfully, its socket address: %s:%s, mpc port: %s",
+                user, clientIp, clientPort, mpcPort));
         udp.send(pkt, "OK");
     }
 
@@ -256,7 +281,6 @@ public class MPCMain {
     }
 }
 
-@AllArgsConstructor
 class UserInfo {
     @Getter
     private final String ip;
@@ -265,7 +289,14 @@ class UserInfo {
     @Getter
     private final int mpcPort;
     @Getter
-    private final BigInteger r;
+    @Setter
+    private BigInteger r;
+
+    public UserInfo(String ip, int userPort, int mpcPort) {
+        this.ip = ip;
+        this.userPort = userPort;
+        this.mpcPort = mpcPort;
+    }
 }
 
 class Group {
