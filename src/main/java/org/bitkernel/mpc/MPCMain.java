@@ -102,10 +102,18 @@ public class MPCMain {
 
     private void createGroup(@NotNull DatagramPacket pkt,
                              @NotNull String user, @NotNull String groupName) {
-        Group g = new Group(user, groupName);
-        groupMap.put(g.getUuid(), g);
-        String msg = String.format("%s:%s", groupName, g.getUuid());
-        logger.debug("[{}] create a group [{}]", user, groupName);
+        List<Group> groupList = groupMap.values().stream().filter(g -> g.contains(user))
+                .collect(Collectors.toList());
+        String msg;
+        if (groupList.stream().anyMatch(g -> g.getGroupName().equals(groupName))) {
+            msg = groupName;
+            logger.debug("Group with the same name cannot be created");
+        } else {
+            Group g = new Group(user, groupName);
+            groupMap.put(g.getUuid(), g);
+            msg = String.format("%s:%s", groupName, g.getUuid());
+            logger.debug("[{}] create a group [{}]", user, groupName);
+        }
         String cmd = String.format("%s@%s@%s", sysName, CmdType.GROUP_ID.cmd, msg);
         udp.send(pkt, cmd);
     }
@@ -205,6 +213,12 @@ public class MPCMain {
         Group g = groupMap.get(groupUuid);
 
         String rsp;
+        if (!storageGateway.contains(groupUuid)) {
+            rsp = "Please generate rsa key pair first";
+            sendToUser(userName, rsp);
+            return;
+        }
+
         if (!alreadyToGenerateRsaKeyPair(g)) {
             rsp = "Waiting for authorization from others";
             logger.debug(rsp);

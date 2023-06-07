@@ -114,6 +114,19 @@ public class StorageGateway {
         }
     }
 
+    public boolean contains(@NotNull String groupUuid) {
+        List<Integer> workingStorageIdxList = getWorkingStorageIdxs();
+        boolean flag = true;
+        for (int idx : workingStorageIdxList) {
+            List<DataBlock> pubKeyBlocks = getPubKeyBlocks(idx, groupUuid);
+            if (pubKeyBlocks.isEmpty()) {
+                flag = false;
+                break;
+            }
+        }
+        return flag;
+    }
+
     /**
      * store the public key and private key
      */
@@ -370,6 +383,9 @@ public class StorageGateway {
 
     @NotNull
     private static List<DataBlock> convertToDataBlocks(@NotNull String rsp) {
+        if (rsp.equals("")) {
+            return new ArrayList<>();
+        }
         String[] split = rsp.split(":");
         List<DataBlock> dataBlocks = new ArrayList<>();
         for (String blockStr : split) {

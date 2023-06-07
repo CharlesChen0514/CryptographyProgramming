@@ -7,10 +7,10 @@ import org.bitkernel.blockchainsystem.Letter;
 import org.bitkernel.common.CmdType;
 import org.bitkernel.common.Config;
 import org.bitkernel.common.Udp;
-import org.bitkernel.storage.StorageGateway;
 import org.bitkernel.cryptography.AESUtil;
 import org.bitkernel.cryptography.RSAKeyPair;
 import org.bitkernel.cryptography.RSAUtil;
+import org.bitkernel.storage.StorageGateway;
 
 import javax.crypto.SecretKey;
 import javax.crypto.spec.SecretKeySpec;
@@ -108,10 +108,17 @@ public class SignServer {
         String groupUuid = split[0].trim();
         String content = split[1].trim();
 
+        String rsp;
+        if (!storageGateway.contains(groupUuid)) {
+            rsp = "Please generate rsa key pair first";
+            String cmd = String.format("%s@%s@%s", sysName, CmdType.RESPONSE.cmd, rsp);
+            udp.send(pkt, cmd);
+            return;
+        }
+
         Pair<Integer, byte[]> subPriKey = storageGateway.getSubPriKey(groupUuid, userName);
         SignRequest signRequest;
-        String rsp;
-        if(signRequestMap.containsKey(groupUuid)) {
+        if (signRequestMap.containsKey(groupUuid)) {
             signRequest = signRequestMap.get(groupUuid);
             signRequest.addSubPriKey(userName, subPriKey);
             rsp = "you authorized a signature request";

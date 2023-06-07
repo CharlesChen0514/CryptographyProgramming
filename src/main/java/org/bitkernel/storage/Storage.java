@@ -150,6 +150,9 @@ public class Storage {
 
     @NotNull
     private static String serialize(@NotNull List<DataBlock> pubKeyBlocks) {
+        if (pubKeyBlocks.isEmpty()) {
+            return "";
+        }
         StringBuilder sb = new StringBuilder();
         for (DataBlock data: pubKeyBlocks) {
             sb.append(Arrays.toString(data.getBytes())).append(":");
