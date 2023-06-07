@@ -22,7 +22,7 @@ public class MPCMain {
     public static final int R_BYTE_NUM = 16;
     public static final int RSA_BYTE_NUM = 128;
     private final Udp udp;
-    /** group name -> group object */
+    /** group uuid -> group object */
     private final Map<String, Group> groupMap = new LinkedHashMap<>();
     /** username -> user info */
     private final Map<String, UserInfo> userInfoMap = new LinkedHashMap<>();
@@ -102,16 +102,10 @@ public class MPCMain {
 
     private void createGroup(@NotNull DatagramPacket pkt,
                              @NotNull String user, @NotNull String groupName) {
-        String msg;
-        if (groupMap.containsKey(groupName)) {
-            msg = groupName;
-            logger.debug("{} is already exist", groupName);
-        } else {
-            Group g = new Group(user, groupName);
-            groupMap.put(groupName, g);
-            msg = String.format("%s:%s", groupName, g.getUuid());
-            logger.debug("[{}] create a group [{}]", user, groupName);
-        }
+        Group g = new Group(user, groupName);
+        groupMap.put(g.getUuid(), g);
+        String msg = String.format("%s:%s", groupName, g.getUuid());
+        logger.debug("[{}] create a group [{}]", user, groupName);
         String cmd = String.format("%s@%s@%s", sysName, CmdType.GROUP_ID.cmd, msg);
         udp.send(pkt, cmd);
     }
@@ -121,14 +115,12 @@ public class MPCMain {
      */
     private void joinGroup(@NotNull DatagramPacket pkt,
                            @NotNull String user, @NotNull String groupUuid) {
-        Optional<Group> first = groupMap.values().stream()
-                .filter(g -> g.getUuid().equals(groupUuid)).findFirst();
         String msg;
-        if (!first.isPresent()) {
+        if (!groupMap.containsKey(groupUuid)) {
             msg = groupUuid;
             logger.debug("Group {} is not exist", groupUuid);
         } else {
-            Group g = first.get();
+            Group g = groupMap.get(groupUuid);
             g.join(user);
             msg = String.format("%s:%s", g.getGroupName(), g.getUuid());
             logger.debug("{} join the {}", user, g.getGroupName());
@@ -158,10 +150,10 @@ public class MPCMain {
 
     private void generateRsaKeyPair(@NotNull String userName, @NotNull String msg) {
         String[] split = msg.split(":");
-        String groupName = split[0];
+        String groupUuid = split[0];
         BigInteger r = new BigInteger(split[1]);
         userInfoMap.get(userName).setR(r);
-        Group g = groupMap.get(groupName);
+        Group g = groupMap.get(groupUuid);
 
         String rsp;
         if (!alreadyToGenerateRsaKeyPair(g)) {
@@ -187,10 +179,10 @@ public class MPCMain {
      */
     @NotNull
     private RSAKeyPair generateRsaKeyPair(@NotNull Group g) {
-        Pair<String, String> path = generateTransferPath(g.getGroupName());
-        g.setSumD1(getSumD1(g.getGroupName(), path));
+        Pair<String, String> path = generateTransferPath(g.getUuid());
+        g.setSumD1(getSumD1(g.getUuid(), path));
         logger.debug("{}'s sum of d1: {}", g.getGroupName(), g.getSumD1());
-        g.setSumD2(getSumD2(g.getGroupName(), path));
+        g.setSumD2(getSumD2(g.getUuid(), path));
         logger.debug("{}'s sum of d1: {}", g.getGroupName(), g.getSumD2());
         g.getMember().forEach(m -> userInfoMap.get(m).setR(null));
 
@@ -207,10 +199,10 @@ public class MPCMain {
 
     private void rsaKeyPariRecover(@NotNull String userName, @NotNull String msg) {
         String[] split = msg.split(":");
-        String groupName = split[0];
+        String groupUuid = split[0];
         BigInteger r = new BigInteger(split[1]);
         userInfoMap.get(userName).setR(r);
-        Group g = groupMap.get(groupName);
+        Group g = groupMap.get(groupUuid);
 
         String rsp;
         if (!alreadyToGenerateRsaKeyPair(g)) {
@@ -241,9 +233,9 @@ public class MPCMain {
     }
 
     @NotNull
-    private BigInteger computeSumD(@NotNull String groupName, @NotNull String msg) {
+    private BigInteger computeSumD(@NotNull String groupUuid, @NotNull String msg) {
         BigInteger x = new BigInteger(msg);
-        Group group = groupMap.get(groupName);
+        Group group = groupMap.get(groupUuid);
         for (String name : group.getMember()) {
             UserInfo userInfo = userInfoMap.get(name);
             x = x.subtract(userInfo.getR());
@@ -252,8 +244,8 @@ public class MPCMain {
     }
 
     @NotNull
-    private Pair<String,String> generateTransferPath(@NotNull String groupName) {
-        Group g = groupMap.get(groupName);
+    private Pair<String,String> generateTransferPath(@NotNull String groupUuid) {
+        Group g = groupMap.get(groupUuid);
         List<Integer> path = new ArrayList<>();
         for (int i = 0; i < g.getMember().size(); i++) {
             path.add(i);
@@ -286,19 +278,19 @@ public class MPCMain {
     }
 
     @NotNull
-    private BigInteger getSumD1(@NotNull String groupName, @NotNull Pair<String, String> path) {
+    private BigInteger getSumD1(@NotNull String groupUuid, @NotNull Pair<String, String> path) {
         String msg1 = String.format("%s@%s@%d:%s:%s", sysName, CmdType.SMPC_1.cmd, 0, path.getValue(), 0);
         UserInfo userInfo = userInfoMap.get(path.getKey());
         udp.send(userInfo.getIp(), userInfo.getMpcPort(), msg1);
-        return computeSumD(groupName, udp.receiveString());
+        return computeSumD(groupUuid, udp.receiveString());
     }
 
     @NotNull
-    private BigInteger getSumD2(@NotNull String groupName, @NotNull Pair<String, String> path) {
+    private BigInteger getSumD2(@NotNull String groupUuid, @NotNull Pair<String, String> path) {
         String msg1 = String.format("%s@%s@%d:%s:%s", sysName, CmdType.SMPC_2.cmd, 0, path.getValue(), 0);
         UserInfo userInfo = userInfoMap.get(path.getKey());
         udp.send(userInfo.getIp(), userInfo.getMpcPort(), msg1);
-        return computeSumD(groupName, udp.receiveString());
+        return computeSumD(groupUuid, udp.receiveString());
     }
 
     private void sendToUser(@NotNull String user, @NotNull String msg) {

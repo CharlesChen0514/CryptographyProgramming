@@ -166,6 +166,11 @@ public class Client {
     private void process(@NotNull String fFullCmdLine) {
         String[] split = fFullCmdLine.split("@");
         CmdType type = CmdType.cmdToEnumMap.get(split[1].trim());
+        if (type == null) {
+            System.out.println("Command error, please re-entered");
+            return;
+        }
+
         switch (type) {
             case CREATE_GROUP:
             case JOIN_GROUP:
@@ -187,6 +192,15 @@ public class Client {
                 break;
             default:
         }
+    }
+
+    @NotNull
+    private String replaceGroupNameToUuid(@NotNull String fFullCmdLine) {
+        String[] split = fFullCmdLine.split("@");
+        String[] msgArr = split[2].split(":");
+        msgArr[0] = groupUuidMap.get(msgArr[0]);
+        split[2] = StringUtils.join(msgArr, ":");
+        return StringUtils.join(split, "@");
     }
 
     /**
@@ -215,7 +229,8 @@ public class Client {
         mpc.setRPlusD2(r.add(new BigInteger(d2Str.getBytes())));
         logger.debug("rPlusD1: {}, rPlusD2: {}", mpc.getRPlusD1(), mpc.getRPlusD2());
 
-        udp.send(Config.getMpcMainIp(), Config.getMpcMainPort(), fFullCmdLine + ":" + r);
+        String sysCmd = replaceGroupNameToUuid(fFullCmdLine) + ":" + r;
+        udp.send(Config.getMpcMainIp(), Config.getMpcMainPort(), sysCmd);
     }
 
     /**
@@ -224,18 +239,10 @@ public class Client {
      * @param fFullCmdLine e.g. chen@-s2t@groupName:hello
      */
     private void signRequest(@NotNull String fFullCmdLine) {
-        String[] split = fFullCmdLine.split("@");
-        // split[2]: groupName:message
-        String[] msgArr = split[2].split(":");
-        if (msgArr.length != 2 || !groupUuidMap.containsKey(msgArr[0])) {
-            System.out.println("Command error, please re-entered");
-            return;
-        }
-        // groupName -> groupUuid
-        msgArr[0] = groupUuidMap.get(msgArr[0]);
-        String msg = StringUtils.join(msgArr, ":");
+        String sysCmd = replaceGroupNameToUuid(fFullCmdLine);
+        String[] split = sysCmd.split("@");
         // symmetric encrypted transmission
-        split[2] = Arrays.toString(AESUtil.encrypt(msg.getBytes(), secretKey));
+        split[2] = Arrays.toString(AESUtil.encrypt(split[2].getBytes(), secretKey));
         udp.send(Config.getSignServerIp(), Config.getSignServerPort(), StringUtils.join(split, "@"));
     }
 }
