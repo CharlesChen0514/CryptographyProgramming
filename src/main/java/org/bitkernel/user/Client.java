@@ -28,7 +28,6 @@ import java.util.Scanner;
 public class Client {
     private static final Scanner in = new Scanner(System.in);
     private final String username;
-    private boolean isRunning = true;
     private final Udp udp;
     /** Symmetric Key */
     private final SecretKey secretKey;
@@ -37,9 +36,9 @@ public class Client {
 
     public Client(@NotNull String username) {
         this.username = username;
-        udp = new Udp();
+        this.udp = new Udp();
         this.secretKey = AESUtil.generateKey();
-        mpc = new MPC();
+        this.mpc = new MPC();
     }
 
     public static void main(String[] args) {
@@ -52,9 +51,12 @@ public class Client {
         client.guide();
     }
 
+    /**
+     * Start local service, including receiver and mpc instance.
+     */
     private void startLocalService() {
         Thread t1 = new Thread(() -> {
-            while (isRunning) {
+            while (true) {
                 DatagramPacket pkt = udp.receivePkt();
                 String fullCmdLine = udp.pktToString(pkt);
                 String[] split = fullCmdLine.split("@");
@@ -90,6 +92,9 @@ public class Client {
         }
     }
 
+    /**
+     * Register to MPC Main and Sign Server
+     */
     private void register() {
         try {
             // register to MPC Main
@@ -125,7 +130,7 @@ public class Client {
         System.out.println("Command guide:");
         CmdType.menu.forEach(System.out::println);
         in.nextLine();
-        while (isRunning) {
+        while (true) {
             String inCmdLine = in.nextLine();
             String fullCmdLine = username + "@" + inCmdLine;
             if (!check(fullCmdLine)) {

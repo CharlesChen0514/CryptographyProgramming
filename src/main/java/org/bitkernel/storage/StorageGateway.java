@@ -38,7 +38,7 @@ public class StorageGateway {
     public StorageGateway() {
         udp = new Udp();
         try {
-            udp.getSocket().setSoTimeout(500);
+            udp.getSocket().setSoTimeout(100);
         } catch (SocketException e) {
             throw new RuntimeException(e);
         }

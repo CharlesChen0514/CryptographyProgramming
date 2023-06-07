@@ -60,7 +60,7 @@ public class SignServer {
                 register(pkt, name, msg);
                 break;
             case SCENARIO2_TEST:
-                newSignRequest(pkt, name, msg);
+                signRequest(pkt, name, msg);
             default:
         }
     }
@@ -93,8 +93,8 @@ public class SignServer {
     /**
      * Initiates a signature request
      */
-    private void newSignRequest(@NotNull DatagramPacket pkt, @NotNull String userName,
-                                @NotNull String msg) {
+    private void signRequest(@NotNull DatagramPacket pkt, @NotNull String userName,
+                             @NotNull String msg) {
         byte[] encrypted = StringToByteArray(msg);
         logger.debug("Sign server accept a cipher text: {}", encrypted);
         if (!secretKeyMap.containsKey(userName)) {
@@ -110,9 +110,11 @@ public class SignServer {
 
         Pair<Integer, byte[]> subPriKey = storageGateway.getSubPriKey(groupUuid, userName);
         SignRequest signRequest;
+        String rsp;
         if(signRequestMap.containsKey(groupUuid)) {
             signRequest = signRequestMap.get(groupUuid);
             signRequest.addSubPriKey(userName, subPriKey);
+            rsp = "you authorized a signature request";
             logger.debug("[{}] authorized a signature request with message [{}]", userName, content);
         } else {
             PublicKey pubKey = storageGateway.getPubKey(groupUuid);
@@ -123,12 +125,16 @@ public class SignServer {
                     groupMemberNum, subPriKey, pubKey);
             signRequestMap.put(groupUuid, signRequest);
             logger.debug("[{}] initiates a signature request with message [{}]", userName, content);
+            rsp = "you initiates a signature request, waiting for authorization from others";
         }
+        String cmd = String.format("%s@%s@%s", sysName, CmdType.RESPONSE.cmd, rsp);
+        udp.send(pkt, cmd);
 
         if (signRequest.isFullyAuthorized()) {
             logger.debug("All users has authorized the sign request");
             Letter letter = signRequest.getLetter();
             udp.send(Config.getBlockChainSysIp(), Config.getBlockChainSysPort(), letter.toString());
+            signRequestMap.remove(groupUuid);
         }
     }
 }

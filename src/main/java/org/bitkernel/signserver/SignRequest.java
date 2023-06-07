@@ -2,6 +2,7 @@ package org.bitkernel.signserver;
 
 import com.sun.istack.internal.NotNull;
 import javafx.util.Pair;
+import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import org.bitkernel.Letter;
 import org.bitkernel.cryptography.RSAUtil;
@@ -19,6 +20,7 @@ public class SignRequest {
     private final List<String> messages = new ArrayList<>();
     private final int groupMemberNum;
     private final List<Pair<Integer, byte[]>> subPriKeyList = new ArrayList<>();
+    @Getter
     private final Set<String> authorizedUserList = new HashSet<>();
     private final PublicKey publicKey;
 

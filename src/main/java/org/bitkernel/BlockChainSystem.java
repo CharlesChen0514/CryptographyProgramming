@@ -27,6 +27,7 @@ public class BlockChainSystem {
         while (true) {
             String letterString = udp.receiveString();
             Letter letter = Letter.parse(letterString);
+            logger.debug("Receive a letter");
 
             byte[] hash1 = RSAUtil.decrypt(letter.getSignature(), letter.getPublicKey());
             String hash1Str = new String(hash1);

@@ -85,24 +85,32 @@ public class MPCMain {
         userInfoMap.get(userName).setR(r);
         Group g = groupMap.get(groupName);
 
+        String rsp;
         if (!already(g)) {
-            logger.debug("Not already");
-            return;
-        }
-
-        Pair<String, String> path = generateTransferPath(groupName);
-        g.setSumD1(getSumD1(groupName, path));
-        logger.debug("{}'s sum of d1: {}", groupName, g.getSumD1());
-        g.setSumD2(getSumD2(groupName, path));
-        logger.debug("{}'s sum of d1: {}", groupName, g.getSumD2());
-
-        RSAKeyPair rsaKeyPair = generateRSAKeyPair(g.getSumD1(), g.getSumD2());
-        boolean flag = storageGateway.checkRecover(g.getMember(), g.getUuid(), rsaKeyPair);
-        if (flag) {
-            storageGateway.remove(g.getUuid());
-            storageGateway.store(g.getMember(), g.getUuid(), rsaKeyPair);
+            rsp = "Waiting for authorization from others";
+            logger.debug(rsp);
+            sendToUser(userName, rsp);
         } else {
-            logger.error("recover failed");
+            Pair<String, String> path = generateTransferPath(groupName);
+            g.setSumD1(getSumD1(groupName, path));
+            logger.debug("{}'s sum of d1: {}", groupName, g.getSumD1());
+            g.setSumD2(getSumD2(groupName, path));
+            logger.debug("{}'s sum of d1: {}", groupName, g.getSumD2());
+            g.getMember().forEach(m -> userInfoMap.get(m).setR(null));
+
+            RSAKeyPair rsaKeyPair = generateRSAKeyPair(g.getSumD1(), g.getSumD2());
+            boolean flag = storageGateway.checkRecover(g.getMember(), g.getUuid(), rsaKeyPair);
+            if (flag) {
+                storageGateway.remove(g.getUuid());
+                storageGateway.store(g.getMember(), g.getUuid(), rsaKeyPair);
+                rsp = String.format("[%s]'s rsa key recover success", g.getName());
+                logger.debug(rsp);
+                g.getMember().forEach(m -> sendToUser(m, rsp));
+            } else {
+                rsp = String.format("[%s]'s rsa key recover failed", g.getName());
+                logger.error(rsp);
+                g.getMember().forEach(m -> sendToUser(m, rsp));
+            }
         }
     }
 
@@ -172,22 +180,26 @@ public class MPCMain {
         userInfoMap.get(userName).setR(r);
         Group g = groupMap.get(groupName);
 
+        String rsp;
         if (!already(g)) {
-            logger.debug("Not already");
-            return;
+            rsp = "Waiting for authorization from others";
+            sendToUser(userName, rsp);
+        } else {
+            Pair<String, String> path = generateTransferPath(groupName);
+            g.setSumD1(getSumD1(groupName, path));
+            logger.debug("{}'s sum of d1: {}", groupName, g.getSumD1());
+            g.setSumD2(getSumD2(groupName, path));
+            logger.debug("{}'s sum of d1: {}", groupName, g.getSumD2());
+            g.getMember().forEach(m -> userInfoMap.get(m).setR(null));
+
+            RSAKeyPair rsaKeyPair = generateRSAKeyPair(g.getSumD1(), g.getSumD2());
+            storageGateway.store(g.getMember(), g.getUuid(), rsaKeyPair);
+            logger.debug("\nThe public key is {}", RSAUtil.getKeyEncodedBase64(rsaKeyPair.getPublicKey()));
+            logger.debug("\nThe private key is {}", RSAUtil.getKeyEncodedBase64(rsaKeyPair.getPrivateKey()));
+            rsp = String.format("[%s]'s rsa key generation success", g.getName());
+            g.getMember().forEach(m -> sendToUser(m, rsp));
         }
-
-        Pair<String, String> path = generateTransferPath(groupName);
-        g.setSumD1(getSumD1(groupName, path));
-        logger.debug("{}'s sum of d1: {}", groupName, g.getSumD1());
-        g.setSumD2(getSumD2(groupName, path));
-        logger.debug("{}'s sum of d1: {}", groupName, g.getSumD2());
-        g.getMember().forEach(m -> userInfoMap.get(m).setR(null));
-
-        RSAKeyPair rsaKeyPair = generateRSAKeyPair(g.getSumD1(), g.getSumD2());
-        storageGateway.store(g.getMember(), g.getUuid(), rsaKeyPair);
-        logger.debug("\nThe public key is {}", RSAUtil.getKeyEncodedBase64(rsaKeyPair.getPublicKey()));
-        logger.debug("\nThe private key is {}", RSAUtil.getKeyEncodedBase64(rsaKeyPair.getPrivateKey()));
+        logger.debug(rsp);
     }
 
     private void getGroupNameList(@NotNull String userName) {
@@ -239,7 +251,8 @@ public class MPCMain {
         udp.send(userInfo.getIp(), userInfo.getUserPort(), cmd);
     }
 
-    private void registerUser(DatagramPacket pkt, @NotNull String user, @NotNull String addr) {
+    private void registerUser(@NotNull DatagramPacket pkt,
+                              @NotNull String user, @NotNull String addr) {
         if (userInfoMap.containsKey(user)) {
             logger.debug("{} online", user);
             return;
