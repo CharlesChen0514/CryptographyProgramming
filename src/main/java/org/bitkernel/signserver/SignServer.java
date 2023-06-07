@@ -3,7 +3,7 @@ package org.bitkernel.signserver;
 import com.sun.istack.internal.NotNull;
 import javafx.util.Pair;
 import lombok.extern.slf4j.Slf4j;
-import org.bitkernel.Letter;
+import org.bitkernel.blockchainsystem.Letter;
 import org.bitkernel.common.CmdType;
 import org.bitkernel.common.Config;
 import org.bitkernel.common.Udp;
@@ -59,7 +59,7 @@ public class SignServer {
             case REGISTER:
                 register(pkt, name, msg);
                 break;
-            case SCENARIO2_TEST:
+            case SIGN_REQUEST:
                 signRequest(pkt, name, msg);
             default:
         }

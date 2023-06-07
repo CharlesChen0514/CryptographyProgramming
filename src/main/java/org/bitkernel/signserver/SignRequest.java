@@ -4,7 +4,7 @@ import com.sun.istack.internal.NotNull;
 import javafx.util.Pair;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
-import org.bitkernel.Letter;
+import org.bitkernel.blockchainsystem.Letter;
 import org.bitkernel.cryptography.RSAUtil;
 
 import java.security.MessageDigest;

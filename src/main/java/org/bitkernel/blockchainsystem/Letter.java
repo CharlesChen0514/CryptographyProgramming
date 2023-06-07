@@ -1,4 +1,4 @@
-package org.bitkernel;
+package org.bitkernel.blockchainsystem;
 
 import com.sun.istack.internal.NotNull;
 import lombok.AllArgsConstructor;

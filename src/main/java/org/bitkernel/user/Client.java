@@ -1,7 +1,6 @@
 package org.bitkernel.user;
 
 import com.sun.istack.internal.NotNull;
-import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 import org.bitkernel.common.CmdType;
@@ -10,7 +9,6 @@ import org.bitkernel.cryptography.AESUtil;
 import org.bitkernel.cryptography.RSAUtil;
 import org.bitkernel.mpc.MPC;
 import org.bitkernel.common.Udp;
-import org.bitkernel.enigma.Enigma;
 
 import javax.crypto.SecretKey;
 import java.math.BigInteger;
@@ -32,6 +30,7 @@ public class Client {
     /** Symmetric Key */
     private final SecretKey secretKey;
     private final MPC mpc;
+    /** group name -> group uuid */
     private final Map<String, String> groupUuidMap = new LinkedHashMap<>();
 
     public Client(@NotNull String username) {
@@ -49,47 +48,6 @@ public class Client {
         client.register();
         client.startLocalService();
         client.guide();
-    }
-
-    /**
-     * Start local service, including receiver and mpc instance.
-     */
-    private void startLocalService() {
-        Thread t1 = new Thread(() -> {
-            while (true) {
-                DatagramPacket pkt = udp.receivePkt();
-                String fullCmdLine = udp.pktToString(pkt);
-                String[] split = fullCmdLine.split("@");
-                CmdType type = CmdType.cmdToEnumMap.get(split[1].trim());
-                switch (type) {
-                    case RESPONSE:
-                        System.out.println(split[2]);
-                        break;
-                    case GROUP_ID:
-                    case JOIN_GROUP:
-                        addGroup(split[2]);
-                        break;
-                }
-            }
-        });
-        t1.start();
-        logger.debug("start udp receiver successfully");
-
-        Thread t2 = new Thread(mpc);
-        t2.start();
-        logger.info("start mpc instance successfully, its socket port is: {}", mpc.getUdp().getPort());
-    }
-
-    private boolean addGroup(@NotNull String msg) {
-        String[] msgArr = msg.split(":");
-        if (msgArr.length == 1) {
-            System.out.printf("Add group [%s] failed%n", msg);
-            return false;
-        } else {
-            groupUuidMap.put(msgArr[0], msgArr[1]);
-            System.out.printf("Add group [%s] success, uuid: %s%n", msgArr[0], msgArr[1]);
-            return true;
-        }
     }
 
     /**
@@ -126,6 +84,52 @@ public class Client {
         }
     }
 
+    /**
+     * Start local service, including receiver and mpc instance.
+     */
+    private void startLocalService() {
+        Thread t1 = new Thread(() -> {
+            while (true) {
+                DatagramPacket pkt = udp.receivePkt();
+                String fullCmdLine = udp.pktToString(pkt);
+                String[] split = fullCmdLine.split("@");
+                CmdType type = CmdType.cmdToEnumMap.get(split[1].trim());
+                switch (type) {
+                    case RESPONSE:
+                        System.out.println(split[2]);
+                        break;
+                    case GROUP_ID:
+                    case JOIN_GROUP:
+                        addGroupMsg(split[2]);
+                        break;
+                }
+            }
+        });
+        t1.start();
+        logger.debug("start udp receiver successfully");
+
+        Thread t2 = new Thread(mpc);
+        t2.start();
+        logger.info("start mpc instance successfully, its socket port is: {}", mpc.getUdp().getPort());
+    }
+
+    /**
+     * Add group information to local
+     * @param msg the format is groupName:groupUuid
+     */
+    private void addGroupMsg(@NotNull String msg) {
+        String[] msgArr = msg.split(":");
+        if (msgArr.length == 1) {
+            System.out.printf("Add group [%s] failed%n", msg);
+        } else {
+            groupUuidMap.put(msgArr[0], msgArr[1]);
+            System.out.printf("Add group [%s] success, uuid: %s%n", msgArr[0], msgArr[1]);
+        }
+    }
+
+    /**
+     * User command navigation
+     */
     private void guide() {
         System.out.println("Command guide:");
         CmdType.menu.forEach(System.out::println);
@@ -134,15 +138,19 @@ public class Client {
             String inCmdLine = in.nextLine();
             String fullCmdLine = username + "@" + inCmdLine;
             if (!check(fullCmdLine)) {
-                Printer.displayLn("Command error, please re-entered");
+                System.out.println("Command error, please re-entered");
                 continue;
             }
+            // Command standardization
             String fFullCmdLine = fullCmdLine.split("@").length == 2 ?
                     fullCmdLine + "@" + " " : fullCmdLine;
             process(fFullCmdLine);
         }
     }
 
+    /**
+     * Check the command whether is correctly formatted
+     */
     private boolean check(@NotNull String fullCmdLine) {
         // lele@-c@group
         String[] split = fullCmdLine.split("@");
@@ -165,13 +173,11 @@ public class Client {
                 udp.send(Config.getMpcMainIp(), Config.getMpcMainPort(), fFullCmdLine);
                 break;
             case GENERATE_RSA_KEY_PAIR:
-                scenario1Test(fFullCmdLine);
+            case RSA_KER_PAIR_RECOVER:
+                generateRsaKeyPair(fFullCmdLine);
                 break;
-            case SCENARIO2_TEST:
-                scenario2Test(fFullCmdLine);
-                break;
-            case SCENARIO3_TEST:
-                scenario3Test(fFullCmdLine);
+            case SIGN_REQUEST:
+                signRequest(fFullCmdLine);
                 break;
             case HELP:
                 CmdType.menu.forEach(System.out::println);
@@ -183,7 +189,14 @@ public class Client {
         }
     }
 
-    private void scenario1Test(@NotNull String fFullCmdLine) {
+    /**
+     * 1. user input a key of length 8 <br>
+     * 2. generate 128-bit random number r <br>
+     * 3. generate d1 and d2 via enigma machine <br>
+     * 4. set the value of (r + d) to mpc instance <br>
+     * 5. send request to MPC-Main <br>
+     */
+    private void generateRsaKeyPair(@NotNull String fFullCmdLine) {
         System.out.print("Please input key of length 8: ");
         String key = in.next();
         in.nextLine();
@@ -205,39 +218,24 @@ public class Client {
         udp.send(Config.getMpcMainIp(), Config.getMpcMainPort(), fFullCmdLine + ":" + r);
     }
 
-    private void scenario3Test(@NotNull String fFullCmdLine) {
-        System.out.print("Please input key of length 8: ");
-        String key = in.next();
-        in.nextLine();
-
-        byte[] rBytes = new byte[16];
-        new SecureRandom().nextBytes(rBytes);
-        BigInteger r = new BigInteger(rBytes);
-        logger.debug("The 128-bit random bit integer is [{}]", r);
-
-        Enigma enigma = new Enigma(Config.getAlphabets(), Config.getPositions());
-        String d1Str = enigma.encode(key);
-        String d2Str = enigma.encode(key);
-        logger.debug(String.format("[%s's] key is [%s], d1 string is [%s], d2 string is [%s]",
-                username, key, d1Str, d2Str));
-        mpc.setRPlusD1(r.add(new BigInteger(d1Str.getBytes())));
-        mpc.setRPlusD2(r.add(new BigInteger(d2Str.getBytes())));
-        logger.debug("rPlusD1: {}, rPlusD2: {}", mpc.getRPlusD1(), mpc.getRPlusD2());
-
-        udp.send(Config.getMpcMainIp(), Config.getMpcMainPort(), fFullCmdLine + ":" + r);
-    }
-
-    private void scenario2Test(@NotNull String fFullCmdLine) {
+    /**
+     * Initiating or authorizing signature requests. change the group name to
+     * group uuid and then send to the Sign server.
+     * @param fFullCmdLine e.g. chen@-s2t@groupName:hello
+     */
+    private void signRequest(@NotNull String fFullCmdLine) {
         String[] split = fFullCmdLine.split("@");
+        // split[2]: groupName:message
         String[] msgArr = split[2].split(":");
         if (msgArr.length != 2 || !groupUuidMap.containsKey(msgArr[0])) {
             System.out.println("Command error, please re-entered");
             return;
         }
+        // groupName -> groupUuid
         msgArr[0] = groupUuidMap.get(msgArr[0]);
         String msg = StringUtils.join(msgArr, ":");
+        // symmetric encrypted transmission
         split[2] = Arrays.toString(AESUtil.encrypt(msg.getBytes(), secretKey));
-        String join = StringUtils.join(split, "@");
-        udp.send(Config.getSignServerIp(), Config.getSignServerPort(), join);
+        udp.send(Config.getSignServerIp(), Config.getSignServerPort(), StringUtils.join(split, "@"));
     }
 }

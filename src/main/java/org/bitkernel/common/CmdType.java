@@ -15,8 +15,8 @@ public enum CmdType {
     JOIN_GROUP("-j", "join a group", "-j@groupUuid"),
     GROUP_List("-gl", "query the groups you are in", "-gl"),
     GENERATE_RSA_KEY_PAIR("-s1t", "generate group rsa key pair", "-s1t@groupName"),
-    SCENARIO2_TEST("-s2t", "sign request", "-s2t@groupName:msg"),
-    SCENARIO3_TEST("-s3t", "group rsa key pair recover", "-s3t@groupName"),
+    SIGN_REQUEST("-s2t", "sign request", "-s2t@groupName:msg"),
+    RSA_KER_PAIR_RECOVER("-s3t", "group rsa key pair recover", "-s3t@groupName"),
     RESPONSE("-rsp", "response message", "-rsp@msg"),
     EXIT("-q", "exit", "-q"),
     HELP("-h", "help", "-h"),
@@ -53,8 +53,8 @@ public enum CmdType {
         menu.add(JOIN_GROUP);
         menu.add(GROUP_List);
         menu.add(GENERATE_RSA_KEY_PAIR);
-        menu.add(SCENARIO2_TEST);
-        menu.add(SCENARIO3_TEST);
+        menu.add(SIGN_REQUEST);
+        menu.add(RSA_KER_PAIR_RECOVER);
         menu.add(EXIT);
     }
 
