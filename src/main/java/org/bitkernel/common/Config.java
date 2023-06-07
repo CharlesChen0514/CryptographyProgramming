@@ -15,17 +15,9 @@ public class Config {
     @Getter
     private static int[] positions;
     @Getter
-    private static int clientPort;
-    @Getter
     private static int mpcMainPort;
     @Getter
     private static String mpcMainIp;
-    @Getter
-    private static int mpcPort;
-    @Getter
-    private static String storageGatewayIp;
-    @Getter
-    private static int storageGatewayPort;
     @Getter
     private static String storage1Ip;
     @Getter
@@ -38,6 +30,14 @@ public class Config {
     private static String storage3Ip;
     @Getter
     private static int storage3Port;
+    @Getter
+    private static String signServerIp;
+    @Getter
+    private static int signServerPort;
+    @Getter
+    private static String blockChainSysIp;
+    @Getter
+    private static int blockChainSysPort;
 
 
     static {
@@ -64,14 +64,8 @@ public class Config {
         int idx3 = Integer.parseInt(properties.getProperty("slowRotorPos"));
         positions = new int[]{idx1, idx2, idx3};
 
-        clientPort = Integer.parseInt(properties.getProperty("clientPort"));
-        mpcPort = Integer.parseInt(properties.getProperty("mpcPort"));
-
         mpcMainIp = properties.getProperty("mpcMainIp");
         mpcMainPort = Integer.parseInt(properties.getProperty("mpcMainPort"));
-
-        storageGatewayIp = properties.getProperty("storageGatewayIp");
-        storageGatewayPort = Integer.parseInt(properties.getProperty("storageGatewayPort"));
 
         storage1Ip = properties.getProperty("storage1Ip");
         storage1Port = Integer.parseInt(properties.getProperty("storage1Port"));
@@ -81,6 +75,12 @@ public class Config {
 
         storage3Ip = properties.getProperty("storage3Ip");
         storage3Port = Integer.parseInt(properties.getProperty("storage3Port"));
+
+        signServerIp = properties.getProperty("signServerIp");
+        signServerPort = Integer.parseInt(properties.getProperty("signServerPort"));
+
+        blockChainSysIp = properties.getProperty("blockChainSysIp");
+        blockChainSysPort = Integer.parseInt(properties.getProperty("blockChainSysPort"));
     }
 
     @NotNull

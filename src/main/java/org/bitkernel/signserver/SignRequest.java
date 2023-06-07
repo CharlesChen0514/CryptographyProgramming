@@ -2,8 +2,9 @@ package org.bitkernel.signserver;
 
 import com.sun.istack.internal.NotNull;
 import javafx.util.Pair;
+import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
-import org.bitkernel.Letter;
+import org.bitkernel.blockchainsystem.Letter;
 import org.bitkernel.cryptography.RSAUtil;
 
 import java.security.MessageDigest;
@@ -15,20 +16,21 @@ import java.util.*;
 @Slf4j
 public class SignRequest {
     private final String initiator;
-    private final String groupTag;
-    private final String msg;
+    private final String groupUuid;
+    private final List<String> messages = new ArrayList<>();
     private final int groupMemberNum;
     private final List<Pair<Integer, byte[]>> subPriKeyList = new ArrayList<>();
+    @Getter
     private final Set<String> authorizedUserList = new HashSet<>();
     private final PublicKey publicKey;
 
-    public SignRequest(@NotNull String userName, @NotNull String groupTag,
+    public SignRequest(@NotNull String userName, @NotNull String groupUuid,
                        @NotNull String msg, int groupMemberNum,
                        @NotNull Pair<Integer, byte[]> subPriKey,
                        @NotNull PublicKey publicKey) {
         this.initiator = userName;
-        this.groupTag = groupTag;
-        this.msg = msg;
+        this.groupUuid = groupUuid;
+        messages.add(msg);
         this.groupMemberNum = groupMemberNum;
         subPriKeyList.add(subPriKey);
         authorizedUserList.add(userName);
@@ -52,12 +54,12 @@ public class SignRequest {
     @NotNull
     public Letter getLetter() {
         MessageDigest md = getMessageDigestInstance();
-        byte[] hash = md.digest(msg.getBytes());
+        byte[] hash = md.digest(messages.toString().getBytes());
 
         PrivateKey privateKey = constructPriKey();
         byte[] signature = RSAUtil.encrypt(hash, privateKey);
 
-        return new Letter(msg, signature, publicKey);
+        return new Letter(messages, signature, publicKey);
     }
 
     public static MessageDigest getMessageDigestInstance() {

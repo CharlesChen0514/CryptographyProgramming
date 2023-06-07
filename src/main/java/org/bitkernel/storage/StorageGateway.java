@@ -36,9 +36,9 @@ public class StorageGateway {
     private final String sysName = "gate way";
 
     public StorageGateway() {
-        udp = new Udp(Config.getStorageGatewayPort());
+        udp = new Udp();
         try {
-            udp.getSocket().setSoTimeout(500);
+            udp.getSocket().setSoTimeout(100);
         } catch (SocketException e) {
             throw new RuntimeException(e);
         }
@@ -48,11 +48,11 @@ public class StorageGateway {
      * Judge the recovered RSA key is correct or not
      */
     public boolean checkRecover(@NotNull List<String> group,
-                                @NotNull String groupTag,
+                                @NotNull String groupUuid,
                                 @NotNull RSAKeyPair rsAKeyPair) {
-        boolean flag = checkRecoverPriKey(group, groupTag, rsAKeyPair.getPrivateKey());
+        boolean flag = checkRecoverPriKey(group, groupUuid, rsAKeyPair.getPrivateKey());
         if (flag) {
-            flag = checkRecoverPubKey(groupTag, rsAKeyPair.getPublicKey());
+            flag = checkRecoverPubKey(groupUuid, rsAKeyPair.getPublicKey());
         }
         return flag;
     }
@@ -104,6 +104,27 @@ public class StorageGateway {
             logger.error("The public key recover failed");
             return false;
         }
+    }
+
+    public void remove(@NotNull String groupUuid) {
+        List<Integer> workingStorageIdxList = getWorkingStorageIdxs();
+        String cmd = String.format("%s@%s@%s", sysName, CmdType.REMOVE.cmd, groupUuid);
+        for (int idx : workingStorageIdxList) {
+            udp.send(Config.getStorageIp(idx), Config.getStoragePort(idx), cmd);
+        }
+    }
+
+    public boolean contains(@NotNull String groupUuid) {
+        List<Integer> workingStorageIdxList = getWorkingStorageIdxs();
+        boolean flag = true;
+        for (int idx : workingStorageIdxList) {
+            List<DataBlock> pubKeyBlocks = getPubKeyBlocks(idx, groupUuid);
+            if (pubKeyBlocks.isEmpty()) {
+                flag = false;
+                break;
+            }
+        }
+        return flag;
     }
 
     /**
@@ -351,11 +372,25 @@ public class StorageGateway {
     }
 
     @NotNull
-    private static List<DataBlock> convertToDataBlocks(String rsp) {
+    private static byte[] stringToByteArray(@NotNull String str) {
+        String[] strArray = str.replaceAll("[\\[\\]\\s]", "").split(",");
+        byte[] byteArray = new byte[strArray.length];
+        for (int i = 0; i < strArray.length; i++) {
+            byteArray[i] = Byte.parseByte(strArray[i]);
+        }
+        return byteArray;
+    }
+
+    @NotNull
+    private static List<DataBlock> convertToDataBlocks(@NotNull String rsp) {
+        if (rsp.equals("")) {
+            return new ArrayList<>();
+        }
         String[] split = rsp.split(":");
         List<DataBlock> dataBlocks = new ArrayList<>();
         for (String blockStr : split) {
-            DataBlock block = new DataBlock(blockStr.getBytes());
+            byte[] bytes = stringToByteArray(blockStr);
+            DataBlock block = new DataBlock(bytes);
             dataBlocks.add(block);
         }
         return dataBlocks;

@@ -1,4 +1,4 @@
-package org.bitkernel.enigma;
+package org.bitkernel.user;
 
 import com.sun.istack.internal.NotNull;
 import lombok.Getter;

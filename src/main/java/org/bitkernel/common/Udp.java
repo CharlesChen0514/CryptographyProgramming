@@ -29,13 +29,13 @@ public class Udp {
         }
     }
 
-    public static boolean checkPort(int port) {
-        try  (DatagramSocket socket = new DatagramSocket(port)){
-            logger.debug("Udp port {} is available", port);
-            return true;
-        } catch (Exception e) {
-            logger.debug("Udp port {} is unavailable", port);
-            return false;
+    public Udp() {
+        try {
+            socket = new DatagramSocket();
+            this.port = socket.getLocalPort();
+        } catch (SocketException e) {
+            logger.error("Attempt to bind udp port {} failed", port);
+            System.exit(-1);
         }
     }
 
@@ -95,7 +95,9 @@ public class Udp {
     @NotNull
     public String pktToString(@NotNull DatagramPacket pkt) {
         byte[] bytes = pkt.getData();
-        return new String(bytes, 0, pkt.getLength());
+        String string = new String(bytes, 0, pkt.getLength());
+        logger.debug("UDP receive pkt: {}", string);
+        return string;
     }
 
     public void close() {

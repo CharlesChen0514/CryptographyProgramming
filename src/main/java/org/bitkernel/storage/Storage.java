@@ -61,15 +61,23 @@ public class Storage {
             case GET_PRI_KEY_BLOCKS:
                 getPriKeyDataBlocks(pkt, msg);
                 break;
+            case REMOVE:
+                remove(pkt, msg);
+                break;
             default:
         }
+    }
+
+    private void remove(@NotNull DatagramPacket pkt, @NotNull String groupUuid) {
+        priKeyDataBlockMap.remove(groupUuid);
+        pubKeyDataBlockMap.remove(groupUuid);
     }
 
     public void putPriKeyBlock(@NotNull DatagramPacket pkt, @NotNull String msg) {
         String[] split = msg.split(":");
         String groupUuid = split[0];
         String username = split[1];
-        byte[] bytes = StringToByteArray(split[2]);
+        byte[] bytes = stringToByteArray(split[2]);
         DataBlock block = new DataBlock(bytes);
         putPriKeyBlock(groupUuid, username, block);
         logger.debug("Store the {}th pri key block, length: {}",
@@ -78,7 +86,7 @@ public class Storage {
     }
 
     @NotNull
-    private byte[] StringToByteArray(@NotNull String str) {
+    private byte[] stringToByteArray(@NotNull String str) {
         String[] strArray = str.replaceAll("[\\[\\]\\s]", "").split(",");
         byte[] byteArray = new byte[strArray.length];
         for (int i = 0; i < strArray.length; i++) {
@@ -87,12 +95,12 @@ public class Storage {
         return byteArray;
     }
 
-    public void putPriKeyBlock(@NotNull String groupTag,
+    public void putPriKeyBlock(@NotNull String groupUuid,
                                @NotNull String userName,
                                @NotNull DataBlock dataBlock) {
-        priKeyDataBlockMap.putIfAbsent(groupTag, new LinkedHashMap<>());
-        priKeyDataBlockMap.get(groupTag).putIfAbsent(userName, new ArrayList<>());
-        priKeyDataBlockMap.get(groupTag).get(userName).add(dataBlock);
+        priKeyDataBlockMap.putIfAbsent(groupUuid, new LinkedHashMap<>());
+        priKeyDataBlockMap.get(groupUuid).putIfAbsent(userName, new ArrayList<>());
+        priKeyDataBlockMap.get(groupUuid).get(userName).add(dataBlock);
     }
 
     public void getPriKeyDataBlocks(@NotNull DatagramPacket pkt, @NotNull String msg) {
@@ -105,23 +113,23 @@ public class Storage {
     }
 
     @NotNull
-    public List<DataBlock> getPriKeyDataBlocks(@NotNull String groupTag,
+    public List<DataBlock> getPriKeyDataBlocks(@NotNull String groupUuid,
                                                @NotNull String userName) {
-        if (!priKeyDataBlockMap.containsKey(groupTag)) {
-            logger.error("Group tag {} not found", groupTag);
+        if (!priKeyDataBlockMap.containsKey(groupUuid)) {
+            logger.error("Group uuid {} not found", groupUuid);
             return new ArrayList<>();
         }
-        if (!priKeyDataBlockMap.get(groupTag).containsKey(userName)) {
+        if (!priKeyDataBlockMap.get(groupUuid).containsKey(userName)) {
             logger.error("User name {} not found", userName);
             return new ArrayList<>();
         }
-        return priKeyDataBlockMap.get(groupTag).get(userName);
+        return priKeyDataBlockMap.get(groupUuid).get(userName);
     }
 
     public void putPubKeyBlock(@NotNull DatagramPacket pkt, @NotNull String msg) {
         String[] split = msg.split(":");
         String groupUuid = split[0];
-        byte[] bytes = StringToByteArray(split[1]);
+        byte[] bytes = stringToByteArray(split[1]);
         DataBlock block = new DataBlock(bytes);
         putPubKeyBlock(groupUuid, block);
         logger.debug("Store the {}th pub key block, length: {}",
@@ -129,10 +137,10 @@ public class Storage {
         udp.send(pkt, "TRUE");
     }
 
-    public void putPubKeyBlock(@NotNull String groupTag,
+    public void putPubKeyBlock(@NotNull String groupUuid,
                                @NotNull DataBlock dataBlock) {
-        pubKeyDataBlockMap.putIfAbsent(groupTag, new ArrayList<>());
-        pubKeyDataBlockMap.get(groupTag).add(dataBlock);
+        pubKeyDataBlockMap.putIfAbsent(groupUuid, new ArrayList<>());
+        pubKeyDataBlockMap.get(groupUuid).add(dataBlock);
     }
 
     public void getPubKeyBlocks(@NotNull DatagramPacket pkt, @NotNull String msg) {
@@ -141,7 +149,10 @@ public class Storage {
     }
 
     @NotNull
-    private static String serialize(List<DataBlock> pubKeyBlocks) {
+    private static String serialize(@NotNull List<DataBlock> pubKeyBlocks) {
+        if (pubKeyBlocks.isEmpty()) {
+            return "";
+        }
         StringBuilder sb = new StringBuilder();
         for (DataBlock data: pubKeyBlocks) {
             sb.append(Arrays.toString(data.getBytes())).append(":");
@@ -151,11 +162,11 @@ public class Storage {
     }
 
     @NotNull
-    public List<DataBlock> getPubKeyBlocks(@NotNull String groupTag) {
-        if (!pubKeyDataBlockMap.containsKey(groupTag)) {
-            logger.error("Group tag {} not found", groupTag);
+    public List<DataBlock> getPubKeyBlocks(@NotNull String groupUuid) {
+        if (!pubKeyDataBlockMap.containsKey(groupUuid)) {
+            logger.error("Group tag {} not found", groupUuid);
             return new ArrayList<>();
         }
-        return pubKeyDataBlockMap.get(groupTag);
+        return pubKeyDataBlockMap.get(groupUuid);
     }
 }

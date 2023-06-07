@@ -1,6 +1,8 @@
 package org.bitkernel.mpc;
 
 import com.sun.istack.internal.NotNull;
+import lombok.Getter;
+import lombok.Setter;
 import lombok.extern.slf4j.Slf4j;
 import org.bitkernel.common.Config;
 import org.bitkernel.common.Udp;
@@ -10,16 +12,18 @@ import java.math.BigInteger;
 
 @Slf4j
 public class MPC implements Runnable {
+    @Getter
     private final Udp udp;
-    private final BigInteger rPlusD1;
-    private final BigInteger rPlusD2;
+    @Getter
+    @Setter
+    private BigInteger rPlusD1;
+    @Getter
+    @Setter
+    private BigInteger rPlusD2;
     private final String sysName = "mpc";
 
-    public MPC(int port, @NotNull BigInteger rPlusD1, @NotNull BigInteger rPlusD2) {
-        udp = new Udp(port);
-        this.rPlusD1 = rPlusD1;
-        this.rPlusD2 = rPlusD2;
-        logger.debug("rPlusD1: {}, rPlusD2: {}", rPlusD1, rPlusD2);
+    public MPC() {
+        udp = new Udp();
     }
 
     public void run() {
@@ -45,8 +49,7 @@ public class MPC implements Runnable {
         }
     }
 
-    private void smpc(@NotNull String groupName, @NotNull String msg,
-                      int type) {
+    private void smpc(@NotNull String groupName, @NotNull String msg, int type) {
         String[] split = msg.split(":");
         int curId = Integer.parseInt(split[0]);
         String pathStr = split[1];
@@ -60,13 +63,7 @@ public class MPC implements Runnable {
 
         int nextId = curId + 1;
         if (nextId == path.length) {
-            String rsp;
-            if (type == 1) {
-                rsp = String.format("%s@%s@%s", groupName, CmdType.BASE_D1.cmd, add);
-            } else {
-                rsp = String.format("%s@%s@%s", groupName, CmdType.BASE_D2.cmd, add);
-            }
-            udp.send(Config.getMpcMainIp(), Config.getMpcMainPort(), rsp);
+            udp.send(Config.getMpcMainIp(), Config.getMpcMainPort(), add.toString());
         } else {
             String next = path[nextId];
             String[] address = next.split(",");

@@ -14,22 +14,26 @@ public enum CmdType {
     CREATE_GROUP("-c", "create a group", "-c@groupName"),
     JOIN_GROUP("-j", "join a group", "-j@groupUuid"),
     GROUP_List("-gl", "query the groups you are in", "-gl"),
-    SCENARIO1_TEST("-s1t", "scenario 1 test", "-s1t@groupName"),
-    SCENARIO2_TEST("-s2t", "scenario 2 test", "-s2t@groupName"),
-    SCENARIO3_TEST("-s3t", "scenario 3 test", "-s3t@groupName"),
+    GENERATE_RSA_KEY_PAIR("-s1t", "generate group rsa key pair", "-s1t@groupName"),
+    SIGN_REQUEST("-s2t", "sign request", "-s2t@groupName:msg"),
+    RSA_KER_PAIR_RECOVER("-s3t", "group rsa key pair recover", "-s3t@groupName"),
     RESPONSE("-rsp", "response message", "-rsp@msg"),
     EXIT("-q", "exit", "-q"),
+    HELP("-h", "help", "-h"),
+    GROUP_ID("-gi", "", "-gi@groupName:uuid"),
 
     SMPC_1("-smpc_1", "SMPC", "-smpc_1@idx:path:X"),
     SMPC_2("-smpc_2", "SMPC", "-smpc_2@idx:path:X"),
-    BASE_D1("-base1", "", "-base1@sumD1"),
-    BASE_D2("-base2", "", "-base2@sumD2"),
 
     HEART_BEAT("-hb", "", "-hb@ "),
     PUT_PUB_KEY_BLOCK("-ppkb1", "", "-ppkb1@groupUuid:block"),
     PUT_PRI_KEY_BLOCK("-ppkb2", "", "-ppkb2@groupUuid:userName:block"),
     GET_PUB_KEY_BLOCKS("-gpkb1", "", "-gpkb1@groupUuid"),
-    GET_PRI_KEY_BLOCKS("-gpkb2", "", "-gpkb2@groupUuid:userName");
+    GET_PRI_KEY_BLOCKS("-gpkb2", "", "-gpkb2@groupUuid:userName"),
+    REMOVE("-remove", "", "-remove@groupUuid"),
+
+    GET_PUB_KEY("-gpk", "", "-gpk@ "),
+    GROUP_NUMBER("-gn", "", "-gn@ ");
 
     public final String cmd;
     public final String description;
@@ -48,16 +52,11 @@ public enum CmdType {
         menu.add(CREATE_GROUP);
         menu.add(JOIN_GROUP);
         menu.add(GROUP_List);
-        menu.add(SCENARIO1_TEST);
-        menu.add(SCENARIO2_TEST);
-        menu.add(SCENARIO3_TEST);
+        menu.add(GENERATE_RSA_KEY_PAIR);
+        menu.add(SIGN_REQUEST);
+        menu.add(RSA_KER_PAIR_RECOVER);
         menu.add(EXIT);
     }
-
-//    @NotNull
-//    public static String constructCmdString(@NotNull String... args) {
-//        return joinDelimiter(args, sym);
-//    }
 
     @NotNull
     public String toString() {

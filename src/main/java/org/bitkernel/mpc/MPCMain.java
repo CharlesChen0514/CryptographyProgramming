@@ -1,7 +1,7 @@
 package org.bitkernel.mpc;
 
 import com.sun.istack.internal.NotNull;
-import lombok.AllArgsConstructor;
+import javafx.util.Pair;
 import lombok.Getter;
 import lombok.Setter;
 import lombok.extern.slf4j.Slf4j;
@@ -13,6 +13,7 @@ import org.bitkernel.common.CmdType;
 import org.bitkernel.storage.StorageGateway;
 
 import java.math.BigInteger;
+import java.net.DatagramPacket;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -21,8 +22,9 @@ public class MPCMain {
     public static final int R_BYTE_NUM = 16;
     public static final int RSA_BYTE_NUM = 128;
     private final Udp udp;
-    /** group name -> group object */
+    /** group uuid -> group object */
     private final Map<String, Group> groupMap = new LinkedHashMap<>();
+    /** username -> user info */
     private final Map<String, UserInfo> userInfoMap = new LinkedHashMap<>();
     private final String sysName = "mpc main";
     private final StorageGateway storageGateway;
@@ -40,145 +42,49 @@ public class MPCMain {
     public void run() {
         logger.debug("MPC Main start success");
         while (true) {
-            String fullCmdLine = udp.receiveString();
-            response(fullCmdLine);
+            DatagramPacket pkt = udp.receivePkt();
+            String fullCmdLine = udp.pktToString(pkt);
+            response(pkt, fullCmdLine);
         }
     }
 
-    private void response(@NotNull String fullCmdLine) {
+    private void response(@NotNull DatagramPacket pkt,
+                          @NotNull String fullCmdLine) {
         String[] split = fullCmdLine.split("@");
         String name = split[0];
         String msg = split[2];
         CmdType type = CmdType.cmdToEnumMap.get(split[1].trim());
         switch (type) {
             case REGISTER:
-                registerUser(name, msg);
+                registerUser(pkt, name, msg);
                 break;
             case CREATE_GROUP:
-                createGroup(name, msg);
+                createGroup(pkt, name, msg);
                 break;
             case JOIN_GROUP:
-                joinGroup(name, msg);
+                joinGroup(pkt, name, msg);
                 break;
             case GROUP_List:
-                getGroupNameList(name);
+                getGroupNameList(pkt, name);
                 break;
-            case SCENARIO1_TEST:
-                generateTransferPath(msg);
+            case GENERATE_RSA_KEY_PAIR:
+                generateRsaKeyPair(name, msg);
                 break;
-            case BASE_D1:
-                setSumD1(name, msg);
+            case GROUP_NUMBER:
+                getGroupNumber(pkt, msg);
                 break;
-            case BASE_D2:
-                setSumD2(name, msg);
+            case RSA_KER_PAIR_RECOVER:
+                rsaKeyPariRecover(name, msg);
                 break;
             default:
         }
     }
 
-    private void setSumD2(@NotNull String groupName, @NotNull String msg) {
-        BigInteger sumD = computeSumD(groupName, msg);
-        Group g = groupMap.get(groupName);
-        g.setSumD2(sumD);
-        logger.debug("{}'s sum of d2: {}", groupName, sumD);
-        if (g.getSumD1() != null && g.getSumD2() != null) {
-            RSAKeyPair rsaKeyPair = generateRSAKeyPair(g.getSumD1(), g.getSumD2());
-            storageGateway.store(g.getMember(), g.getUuid(), rsaKeyPair);
-            logger.debug("\nThe public key is {}", RSAUtil.getKeyEncodedBase64(rsaKeyPair.getPublicKey()));
-            logger.debug("\nThe private key is {}", RSAUtil.getKeyEncodedBase64(rsaKeyPair.getPrivateKey()));
-        }
-    }
-
-    private void setSumD1(@NotNull String groupName, @NotNull String msg) {
-        BigInteger sumD = computeSumD(groupName, msg);
-        Group g = groupMap.get(groupName);
-        g.setSumD1(sumD);
-        logger.debug("{}'s sum of d1: {}", groupName, sumD);
-        if (g.getSumD1() != null && g.getSumD2() != null) {
-            RSAKeyPair rsaKeyPair = generateRSAKeyPair(g.getSumD1(), g.getSumD2());
-            storageGateway.store(g.getMember(), g.getUuid(), rsaKeyPair);
-            logger.debug("\nThe public key is {}", RSAUtil.getKeyEncodedBase64(rsaKeyPair.getPublicKey()));
-            logger.debug("\nThe private key is {}", RSAUtil.getKeyEncodedBase64(rsaKeyPair.getPrivateKey()));
-        }
-    }
-
-    @NotNull
-    private BigInteger computeSumD(@NotNull String groupName, @NotNull String msg) {
-        BigInteger x = new BigInteger(msg);
-        Group group = groupMap.get(groupName);
-        for (String name : group.getMember()) {
-            UserInfo userInfo = userInfoMap.get(name);
-            x = x.subtract(userInfo.getR());
-        }
-        return x;
-    }
-
-    private void generateTransferPath(@NotNull String groupName) {
-        Group group = groupMap.get(groupName);
-        List<Integer> path = new ArrayList<>();
-        for (int i = 0; i < group.getMember().size(); i++) {
-            path.add(i);
-        }
-        Collections.shuffle(path);
-        printPath(path, group.getMember());
-
-        List<String> namePath = path.stream().map(idx -> group.getMember().get(idx))
-                .collect(Collectors.toList());
-        StringBuilder sb = new StringBuilder();
-        for(String name: namePath) {
-            UserInfo userInfo = userInfoMap.get(name);
-            sb.append(name).append(",").append(userInfo.getIp()).append(",").append(userInfo.getMpcPort());
-            sb.append("-");
-        }
-        sb.deleteCharAt(sb.length() - 1);
-
-        String msg1 = String.format("%s@%s@%d:%s:%s", groupName, CmdType.SMPC_1.cmd, 0, sb, 0);
-        String msg2 = String.format("%s@%s@%d:%s:%s", groupName, CmdType.SMPC_2.cmd, 0, sb, 0);
-        UserInfo userInfo = userInfoMap.get(namePath.get(0));
-        udp.send(userInfo.getIp(), userInfo.getMpcPort(), msg1);
-        udp.send(userInfo.getIp(), userInfo.getMpcPort(), msg2);
-    }
-
-    private void getGroupNameList(@NotNull String userName) {
-        List<String> names = groupMap.values().stream().filter(g -> g.contains(userName))
-                .map(Group::getName).collect(Collectors.toList());
-        String msg = String.format("The group you are in has: %s", names);
-        sendToUser(userName, msg);
-    }
-
-    private void joinGroup(@NotNull String user, @NotNull String groupUuid) {
-        Optional<Group> first = groupMap.values().stream()
-                .filter(g -> g.getUuid().equals(groupUuid)).findFirst();
-        String msg;
-        if (!first.isPresent()) {
-            msg = String.format("Non-existent group of uuid [%s]", groupUuid);
-        } else {
-            Group group = first.get();
-            group.join(user);
-            msg = String.format("join group [%s] success", group.getName());
-        }
-        sendToUser(user, msg);
-    }
-
-    private void createGroup(@NotNull String user, @NotNull String groupName) {
-        String msg;
-        if (groupMap.containsKey(groupName)) {
-            msg = String.format("create group [%s] failed", groupName);
-        } else {
-            Group g = new Group(user, groupName);
-            groupMap.put(groupName, g);
-            msg = String.format("create group [%s] success, uuid: %s", groupName, g.getUuid());
-        }
-        sendToUser(user, msg);
-    }
-
-    private void sendToUser(@NotNull String user, @NotNull String msg) {
-        String cmd = String.format("%s@%s@%s", sysName, CmdType.RESPONSE.cmd, msg);
-        UserInfo userInfo = userInfoMap.get(user);
-        udp.send(userInfo.getIp(), userInfo.getUserPort(), cmd);
-    }
-
-    private void registerUser(@NotNull String user, @NotNull String addr) {
+    /**
+     * @param addr format is clientIp:clientPort:mpcPort
+     */
+    private void registerUser(@NotNull DatagramPacket pkt,
+                              @NotNull String user, @NotNull String addr) {
         if (userInfoMap.containsKey(user)) {
             logger.debug("{} online", user);
             return;
@@ -187,11 +93,206 @@ public class MPCMain {
         String clientIp = split[0].trim();
         int clientPort = Integer.parseInt(split[1]);
         int mpcPort = Integer.parseInt(split[2]);
-        BigInteger r = new BigInteger(split[3]);
-        UserInfo info = new UserInfo(clientIp, clientPort, mpcPort, r);
+        UserInfo info = new UserInfo(clientIp, clientPort, mpcPort);
         userInfoMap.put(user, info);
-        logger.info(String.format("%s register successfully, its socket address: %s:%s, mpc port: %s, r: %s",
-                user, clientIp, clientPort, mpcPort, r));
+        logger.info(String.format("%s register successfully, its socket address: %s:%s, mpc port: %s",
+                user, clientIp, clientPort, mpcPort));
+        udp.send(pkt, "OK");
+    }
+
+    /**
+     * 1. get the list of groups the user belongs to <br>
+     * 2. check whether there has a group with the same name <br>
+     * 3. If so, group creation failed, otherwise create a new group
+     */
+    private void createGroup(@NotNull DatagramPacket pkt,
+                             @NotNull String user, @NotNull String groupName) {
+        List<Group> groupList = groupMap.values().stream().filter(g -> g.contains(user))
+                .collect(Collectors.toList());
+        String msg;
+        if (groupList.stream().anyMatch(g -> g.getGroupName().equals(groupName))) {
+            msg = groupName;
+            logger.debug("Group with the same name cannot be created");
+        } else {
+            Group g = new Group(user, groupName);
+            groupMap.put(g.getUuid(), g);
+            msg = String.format("%s:%s", groupName, g.getUuid());
+            logger.debug("[{}] create a group [{}]", user, groupName);
+        }
+        String cmd = String.format("%s@%s@%s", sysName, CmdType.GROUP_ID.cmd, msg);
+        udp.send(pkt, cmd);
+    }
+
+    /**
+     * join a group via UUID
+     */
+    private void joinGroup(@NotNull DatagramPacket pkt,
+                           @NotNull String user, @NotNull String groupUuid) {
+        String msg;
+        if (!groupMap.containsKey(groupUuid)) {
+            msg = groupUuid;
+            logger.debug("Group {} is not exist", groupUuid);
+        } else {
+            Group g = groupMap.get(groupUuid);
+            g.join(user);
+            msg = String.format("%s:%s", g.getGroupName(), g.getUuid());
+            logger.debug("{} join the {}", user, g.getGroupName());
+        }
+        String cmd = String.format("%s@%s@%s", sysName, CmdType.GROUP_ID.cmd, msg);
+        udp.send(pkt, cmd);
+    }
+
+    /**
+     * get the list of groups the user belongs to
+     */
+    private void getGroupNameList(@NotNull DatagramPacket pkt,
+                                  @NotNull String userName) {
+        List<Group> groupList = groupMap.values().stream().filter(g -> g.contains(userName))
+                .collect(Collectors.toList());
+        StringBuilder sb = new StringBuilder("The group you are in has:\n");
+        for (int i = 0; i < groupList.size(); i++) {
+            Group g = groupList.get(i);
+            sb.append("\t").append(i).append(") ").append(g.getGroupName())
+                    .append(", ").append(g.getUuid()).append(System.lineSeparator());
+        }
+        sb.deleteCharAt(sb.length() - 1);
+        String cmd = String.format("%s@%s@%s", sysName, CmdType.RESPONSE.cmd, sb);
+        udp.send(pkt, cmd);
+    }
+
+    private boolean alreadyToGenerateRsaKeyPair(@NotNull Group g) {
+        return g.getMember().stream().allMatch(m -> userInfoMap.get(m).getR() != null);
+    }
+
+    private void generateRsaKeyPair(@NotNull String userName, @NotNull String msg) {
+        String[] split = msg.split(":");
+        String groupUuid = split[0];
+        BigInteger r = new BigInteger(split[1]);
+        userInfoMap.get(userName).setR(r);
+        Group g = groupMap.get(groupUuid);
+
+        String rsp;
+        if (!alreadyToGenerateRsaKeyPair(g)) {
+            rsp = "Waiting for authorization from others";
+            sendToUser(userName, rsp);
+        } else {
+            RSAKeyPair rsaKeyPair = generateRsaKeyPair(g);
+            storageGateway.store(g.getMember(), g.getUuid(), rsaKeyPair);
+            logger.debug("\nThe public key is {}", RSAUtil.getKeyEncodedBase64(rsaKeyPair.getPublicKey()));
+            logger.debug("\nThe private key is {}", RSAUtil.getKeyEncodedBase64(rsaKeyPair.getPrivateKey()));
+            rsp = String.format("[%s]'s rsa key generation success", g.getGroupName());
+            g.getMember().forEach(m -> sendToUser(m, rsp));
+        }
+        logger.debug(rsp);
+    }
+
+    /**
+     * 1. get sum of d1 via SMPC <br>
+     * 2. get sum of d2 via SMPC <br>
+     * 3. expanding d1 and d2 to 1024 bit <br>
+     * 4. find large prime number P and Q based on sumD1 and sumD2 <br>
+     * 5. based on P and Q generate RSA key pair <br>
+     */
+    @NotNull
+    private RSAKeyPair generateRsaKeyPair(@NotNull Group g) {
+        Pair<String, String> path = generateTransferPath(g.getUuid());
+        g.setSumD1(getSumD1(g.getUuid(), path));
+        logger.debug("{}'s sum of d1: {}", g.getGroupName(), g.getSumD1());
+        g.setSumD2(getSumD2(g.getUuid(), path));
+        logger.debug("{}'s sum of d1: {}", g.getGroupName(), g.getSumD2());
+        g.getMember().forEach(m -> userInfoMap.get(m).setR(null));
+
+        BigInteger d1SumPadding = dataExpanding(g.getSumD1());
+        BigInteger d2SumPadding = dataExpanding(g.getSumD2());
+        logger.debug("D1 sum [{}] expanding to [{}]", g.getSumD1(), d1SumPadding);
+        logger.debug("D2 sum [{}] expanding to [{}]", g.getSumD2(), d2SumPadding);
+        BigInteger p = findNextPrime(d1SumPadding);
+        BigInteger q = findNextPrime(d2SumPadding);
+        logger.debug("Find P [{}]", p);
+        logger.debug("Find Q [{}]", q);
+        return new RSAKeyPair(p, q);
+    }
+
+    /**
+     * 1. generate rsa key pair when all user is fully authorized <br>
+     * 2. check the new key pair whether recover correctly <br>
+     * 3. if so, recover success, otherwise failed.
+     */
+    private void rsaKeyPariRecover(@NotNull String userName, @NotNull String msg) {
+        String[] split = msg.split(":");
+        String groupUuid = split[0];
+        BigInteger r = new BigInteger(split[1]);
+        userInfoMap.get(userName).setR(r);
+        Group g = groupMap.get(groupUuid);
+
+        String rsp;
+        if (!storageGateway.contains(groupUuid)) {
+            rsp = "Please generate rsa key pair first";
+            sendToUser(userName, rsp);
+            return;
+        }
+
+        if (!alreadyToGenerateRsaKeyPair(g)) {
+            rsp = "Waiting for authorization from others";
+            logger.debug(rsp);
+            sendToUser(userName, rsp);
+        } else {
+            RSAKeyPair rsaKeyPair = generateRsaKeyPair(g);
+            boolean flag = storageGateway.checkRecover(g.getMember(), g.getUuid(), rsaKeyPair);
+            if (flag) {
+                storageGateway.remove(g.getUuid());
+                storageGateway.store(g.getMember(), g.getUuid(), rsaKeyPair);
+                rsp = String.format("[%s]'s rsa key recover success", g.getGroupName());
+                logger.debug(rsp);
+                g.getMember().forEach(m -> sendToUser(m, rsp));
+            } else {
+                rsp = String.format("[%s]'s rsa key recover failed", g.getGroupName());
+                logger.error(rsp);
+                g.getMember().forEach(m -> sendToUser(m, rsp));
+            }
+        }
+    }
+
+    private void getGroupNumber(@NotNull DatagramPacket pkt, @NotNull String groupUuid) {
+        Group group = groupMap.values().stream().
+                filter(g -> g.getUuid().equals(groupUuid)).findFirst().get();
+        udp.send(pkt, String.valueOf(group.getMember().size()));
+    }
+
+    @NotNull
+    private BigInteger computeSumD(@NotNull String groupUuid, @NotNull String msg) {
+        BigInteger x = new BigInteger(msg);
+        Group group = groupMap.get(groupUuid);
+        for (String name : group.getMember()) {
+            UserInfo userInfo = userInfoMap.get(name);
+            x = x.subtract(userInfo.getR());
+        }
+        return x;
+    }
+
+    /**
+     * Generate the messaging path for SMPC
+     */
+    @NotNull
+    private Pair<String,String> generateTransferPath(@NotNull String groupUuid) {
+        Group g = groupMap.get(groupUuid);
+        List<Integer> path = new ArrayList<>();
+        for (int i = 0; i < g.getMember().size(); i++) {
+            path.add(i);
+        }
+        Collections.shuffle(path);
+        printPath(path, g.getMember());
+
+        List<String> namePath = path.stream().map(idx -> g.getMember().get(idx))
+                .collect(Collectors.toList());
+        StringBuilder sb = new StringBuilder();
+        for(String name: namePath) {
+            UserInfo userInfo = userInfoMap.get(name);
+            sb.append(name).append(",").append(userInfo.getIp()).append(",").append(userInfo.getMpcPort());
+            sb.append("-");
+        }
+        sb.deleteCharAt(sb.length() - 1);
+        return new Pair<>(namePath.get(0), sb.toString());
     }
 
     @NotNull
@@ -206,21 +307,26 @@ public class MPCMain {
         logger.debug("The SMPC transfer path is: {}", sb);
     }
 
-    /**
-     * Base on the d1 sum and d2 sum to generate the RSA key pair
-     */
     @NotNull
-    public RSAKeyPair generateRSAKeyPair(@NotNull BigInteger d1Sum,
-                                         @NotNull BigInteger d2Sum) {
-        BigInteger d1SumPadding = dataPadding(d1Sum);
-        BigInteger d2SumPadding = dataPadding(d2Sum);
-        logger.debug("D1 sum [{}] expanding to [{}]", d1Sum, d1SumPadding);
-        logger.debug("D2 sum [{}] expanding to [{}]", d2Sum, d2SumPadding);
-        BigInteger p = findNextPrime(d1SumPadding);
-        BigInteger q = findNextPrime(d2SumPadding);
-        logger.debug("Find P [{}]", p);
-        logger.debug("Find Q [{}]", q);
-        return new RSAKeyPair(p, q);
+    private BigInteger getSumD1(@NotNull String groupUuid, @NotNull Pair<String, String> path) {
+        String msg1 = String.format("%s@%s@%d:%s:%s", sysName, CmdType.SMPC_1.cmd, 0, path.getValue(), 0);
+        UserInfo userInfo = userInfoMap.get(path.getKey());
+        udp.send(userInfo.getIp(), userInfo.getMpcPort(), msg1);
+        return computeSumD(groupUuid, udp.receiveString());
+    }
+
+    @NotNull
+    private BigInteger getSumD2(@NotNull String groupUuid, @NotNull Pair<String, String> path) {
+        String msg1 = String.format("%s@%s@%d:%s:%s", sysName, CmdType.SMPC_2.cmd, 0, path.getValue(), 0);
+        UserInfo userInfo = userInfoMap.get(path.getKey());
+        udp.send(userInfo.getIp(), userInfo.getMpcPort(), msg1);
+        return computeSumD(groupUuid, udp.receiveString());
+    }
+
+    private void sendToUser(@NotNull String user, @NotNull String msg) {
+        String cmd = String.format("%s@%s@%s", sysName, CmdType.RESPONSE.cmd, msg);
+        UserInfo userInfo = userInfoMap.get(user);
+        udp.send(userInfo.getIp(), userInfo.getUserPort(), cmd);
     }
 
     @NotNull
@@ -231,9 +337,12 @@ public class MPCMain {
         return base;
     }
 
+    /**
+     * Expanding data to {@link #RSA_BYTE_NUM} bytes
+     */
     @NotNull
-    public static BigInteger dataPadding(@NotNull BigInteger data) {
-        byte[] input = data.toByteArray();
+    public static BigInteger dataExpanding(@NotNull BigInteger d) {
+        byte[] input = d.toByteArray();
         if (input.length > R_BYTE_NUM) {
             logger.error("Input error, the byte length {} is not as expected {}",
                     input.length, R_BYTE_NUM);
@@ -252,7 +361,6 @@ public class MPCMain {
     }
 }
 
-@AllArgsConstructor
 class UserInfo {
     @Getter
     private final String ip;
@@ -261,15 +369,22 @@ class UserInfo {
     @Getter
     private final int mpcPort;
     @Getter
-    private final BigInteger r;
+    @Setter
+    private BigInteger r;
+
+    public UserInfo(String ip, int userPort, int mpcPort) {
+        this.ip = ip;
+        this.userPort = userPort;
+        this.mpcPort = mpcPort;
+    }
 }
 
 class Group {
     @Getter
     private final List<String> member = new ArrayList<>();
-    private final String master;
+    private final String creator;
     @Getter
-    private final String name;
+    private final String groupName;
     @Getter
     private final String uuid;
     @Getter
@@ -279,9 +394,9 @@ class Group {
     @Setter
     private BigInteger sumD2;
 
-    public Group(@NotNull String user, @NotNull String name) {
-        this.master = user;
-        this.name = name;
+    public Group(@NotNull String user, @NotNull String groupName) {
+        this.creator = user;
+        this.groupName = groupName;
         member.add(user);
         uuid = getUUID32();
     }
