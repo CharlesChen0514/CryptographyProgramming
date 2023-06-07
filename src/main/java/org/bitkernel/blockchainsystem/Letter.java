@@ -31,7 +31,7 @@ public class Letter {
     }
 
     @NotNull
-    private static byte[] StringToByteArray(@NotNull String str) {
+    private static byte[] stringToByteArray(@NotNull String str) {
         String[] strArray = str.replaceAll("[\\[\\]\\s]", "").split(",");
         byte[] byteArray = new byte[strArray.length];
         for (int i = 0; i < strArray.length; i++) {
@@ -45,7 +45,7 @@ public class Letter {
         String[] split = str.split("@");
         String[] messageArr = split[0].split(":");
         List<String> messageList = Arrays.asList(messageArr);
-        byte[] signature = StringToByteArray(split[1]);
+        byte[] signature = stringToByteArray(split[1]);
         PublicKey publicKey = RSAUtil.getPublicKey(split[2]);
         return new Letter(messageList, signature, publicKey);
     }

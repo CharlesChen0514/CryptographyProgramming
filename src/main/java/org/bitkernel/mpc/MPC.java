@@ -49,8 +49,7 @@ public class MPC implements Runnable {
         }
     }
 
-    private void smpc(@NotNull String groupName, @NotNull String msg,
-                      int type) {
+    private void smpc(@NotNull String groupName, @NotNull String msg, int type) {
         String[] split = msg.split(":");
         int curId = Integer.parseInt(split[0]);
         String pathStr = split[1];

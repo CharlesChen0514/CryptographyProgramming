@@ -100,6 +100,11 @@ public class MPCMain {
         udp.send(pkt, "OK");
     }
 
+    /**
+     * 1. get the list of groups the user belongs to <br>
+     * 2. check whether there has a group with the same name <br>
+     * 3. If so, group creation failed, otherwise create a new group
+     */
     private void createGroup(@NotNull DatagramPacket pkt,
                              @NotNull String user, @NotNull String groupName) {
         List<Group> groupList = groupMap.values().stream().filter(g -> g.contains(user))
@@ -137,6 +142,9 @@ public class MPCMain {
         udp.send(pkt, cmd);
     }
 
+    /**
+     * get the list of groups the user belongs to
+     */
     private void getGroupNameList(@NotNull DatagramPacket pkt,
                                   @NotNull String userName) {
         List<Group> groupList = groupMap.values().stream().filter(g -> g.contains(userName))
@@ -205,6 +213,11 @@ public class MPCMain {
         return new RSAKeyPair(p, q);
     }
 
+    /**
+     * 1. generate rsa key pair when all user is fully authorized <br>
+     * 2. check the new key pair whether recover correctly <br>
+     * 3. if so, recover success, otherwise failed.
+     */
     private void rsaKeyPariRecover(@NotNull String userName, @NotNull String msg) {
         String[] split = msg.split(":");
         String groupUuid = split[0];
@@ -257,6 +270,9 @@ public class MPCMain {
         return x;
     }
 
+    /**
+     * Generate the messaging path for SMPC
+     */
     @NotNull
     private Pair<String,String> generateTransferPath(@NotNull String groupUuid) {
         Group g = groupMap.get(groupUuid);
@@ -321,6 +337,9 @@ public class MPCMain {
         return base;
     }
 
+    /**
+     * Expanding data to {@link #RSA_BYTE_NUM} bytes
+     */
     @NotNull
     public static BigInteger dataExpanding(@NotNull BigInteger d) {
         byte[] input = d.toByteArray();

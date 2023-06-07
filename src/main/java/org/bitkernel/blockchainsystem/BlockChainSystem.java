@@ -10,7 +10,6 @@ import java.security.NoSuchAlgorithmException;
 
 @Slf4j
 public class BlockChainSystem {
-
     private final Udp udp;
 
     public BlockChainSystem() {

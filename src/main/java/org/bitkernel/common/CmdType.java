@@ -58,11 +58,6 @@ public enum CmdType {
         menu.add(EXIT);
     }
 
-//    @NotNull
-//    public static String constructCmdString(@NotNull String... args) {
-//        return joinDelimiter(args, sym);
-//    }
-
     @NotNull
     public String toString() {
         return String.format("\t%s, %s, %s", cmd, description, example);

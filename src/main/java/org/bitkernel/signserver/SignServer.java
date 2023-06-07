@@ -22,6 +22,7 @@ import java.util.Map;
 @Slf4j
 public class SignServer {
     private final RSAKeyPair rsaKeyPair = new RSAKeyPair();
+    /** group uuid -> sign request object */
     private final Map<String, SignRequest> signRequestMap = new LinkedHashMap<>();
     /** user name -> symmetric key */
     private final Map<String, SecretKey> secretKeyMap = new LinkedHashMap<>();
@@ -47,7 +48,7 @@ public class SignServer {
         }
     }
 
-    private void response(DatagramPacket pkt, @NotNull String fullCmdLine) {
+    private void response(@NotNull DatagramPacket pkt, @NotNull String fullCmdLine) {
         String[] split = fullCmdLine.split("@");
         String name = split[0];
         String msg = split[2];
@@ -72,7 +73,7 @@ public class SignServer {
 
     private void register(@NotNull DatagramPacket pkt, @NotNull String userName,
                           @NotNull String msg) {
-        byte[] encrypted = StringToByteArray(msg);
+        byte[] encrypted = stringToByteArray(msg);
         byte[] decrypt = RSAUtil.decrypt(encrypted, rsaKeyPair.getPrivateKey());
         SecretKey secretKey = new SecretKeySpec(decrypt, "AES");
         secretKeyMap.put(userName, secretKey);
@@ -81,7 +82,7 @@ public class SignServer {
     }
 
     @NotNull
-    private byte[] StringToByteArray(@NotNull String str) {
+    private byte[] stringToByteArray(@NotNull String str) {
         String[] strArray = str.replaceAll("[\\[\\]\\s]", "").split(",");
         byte[] byteArray = new byte[strArray.length];
         for (int i = 0; i < strArray.length; i++) {
@@ -91,11 +92,15 @@ public class SignServer {
     }
 
     /**
-     * Initiates a signature request
+     * 1. check whether the sign request exists or not <br>
+     * 2. if not exist, initiate a new sign request,
+     * otherwise authorize the sign request <br>
+     * 3. if the sign request is fully authorized,
+     * generate the letter and transfer it to the blockchain system
      */
     private void signRequest(@NotNull DatagramPacket pkt, @NotNull String userName,
                              @NotNull String msg) {
-        byte[] encrypted = StringToByteArray(msg);
+        byte[] encrypted = stringToByteArray(msg);
         logger.debug("Sign server accept a cipher text: {}", encrypted);
         if (!secretKeyMap.containsKey(userName)) {
             logger.error("Secret key not found, please register first");
