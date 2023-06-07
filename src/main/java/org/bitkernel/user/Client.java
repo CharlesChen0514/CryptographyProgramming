@@ -28,7 +28,6 @@ import java.util.Scanner;
 public class Client {
     private static final Scanner in = new Scanner(System.in);
     private final String username;
-    private final Enigma enigma;
     private boolean isRunning = true;
     private final Udp udp;
     /** Symmetric Key */
@@ -38,7 +37,6 @@ public class Client {
 
     public Client(@NotNull String username) {
         this.username = username;
-        enigma = new Enigma(Config.getAlphabets(), Config.getPositions());
         udp = new Udp();
         this.secretKey = AESUtil.generateKey();
         mpc = new MPC();
@@ -190,6 +188,7 @@ public class Client {
         BigInteger r = new BigInteger(rBytes);
         logger.debug("The 128-bit random bit integer is [{}]", r);
 
+        Enigma enigma = new Enigma(Config.getAlphabets(), Config.getPositions());
         String d1Str = enigma.encode(key);
         String d2Str = enigma.encode(key);
         logger.debug(String.format("[%s's] key is [%s], d1 string is [%s], d2 string is [%s]",
@@ -202,14 +201,25 @@ public class Client {
     }
 
     private void scenario3Test(@NotNull String fFullCmdLine) {
-        String[] split = fFullCmdLine.split("@");
-        if (split.length != 3 || !groupUuidMap.containsKey(split[2])) {
-            System.out.println("Command error, please re-entered");
-            return;
-        }
-        split[2] = groupUuidMap.get(split[2]);
-        String join = StringUtils.join(split, "@");
-        udp.send(Config.getSignServerIp(), Config.getSignServerPort(), join);
+        System.out.print("Please input key of length 8: ");
+        String key = in.next();
+        in.nextLine();
+
+        byte[] rBytes = new byte[16];
+        new SecureRandom().nextBytes(rBytes);
+        BigInteger r = new BigInteger(rBytes);
+        logger.debug("The 128-bit random bit integer is [{}]", r);
+
+        Enigma enigma = new Enigma(Config.getAlphabets(), Config.getPositions());
+        String d1Str = enigma.encode(key);
+        String d2Str = enigma.encode(key);
+        logger.debug(String.format("[%s's] key is [%s], d1 string is [%s], d2 string is [%s]",
+                username, key, d1Str, d2Str));
+        mpc.setRPlusD1(r.add(new BigInteger(d1Str.getBytes())));
+        mpc.setRPlusD2(r.add(new BigInteger(d2Str.getBytes())));
+        logger.debug("rPlusD1: {}, rPlusD2: {}", mpc.getRPlusD1(), mpc.getRPlusD2());
+
+        udp.send(Config.getMpcMainIp(), Config.getMpcMainPort(), fFullCmdLine + ":" + r);
     }
 
     private void scenario2Test(@NotNull String fFullCmdLine) {

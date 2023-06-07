@@ -71,7 +71,38 @@ public class MPCMain {
             case GROUP_NUMBER:
                 getGroupNumber(pkt, msg);
                 break;
+            case SCENARIO3_TEST:
+                rsaKeyPariRecover(name, msg);
+                break;
             default:
+        }
+    }
+
+    private void rsaKeyPariRecover(@NotNull String userName, @NotNull String msg) {
+        String[] split = msg.split(":");
+        String groupName = split[0];
+        BigInteger r = new BigInteger(split[1]);
+        userInfoMap.get(userName).setR(r);
+        Group g = groupMap.get(groupName);
+
+        if (!already(g)) {
+            logger.debug("Not already");
+            return;
+        }
+
+        Pair<String, String> path = generateTransferPath(groupName);
+        g.setSumD1(getSumD1(groupName, path));
+        logger.debug("{}'s sum of d1: {}", groupName, g.getSumD1());
+        g.setSumD2(getSumD2(groupName, path));
+        logger.debug("{}'s sum of d1: {}", groupName, g.getSumD2());
+
+        RSAKeyPair rsaKeyPair = generateRSAKeyPair(g.getSumD1(), g.getSumD2());
+        boolean flag = storageGateway.checkRecover(g.getMember(), g.getUuid(), rsaKeyPair);
+        if (flag) {
+            storageGateway.remove(g.getUuid());
+            storageGateway.store(g.getMember(), g.getUuid(), rsaKeyPair);
+        } else {
+            logger.error("recover failed");
         }
     }
 
@@ -151,6 +182,7 @@ public class MPCMain {
         logger.debug("{}'s sum of d1: {}", groupName, g.getSumD1());
         g.setSumD2(getSumD2(groupName, path));
         logger.debug("{}'s sum of d1: {}", groupName, g.getSumD2());
+        g.getMember().forEach(m -> userInfoMap.get(m).setR(null));
 
         RSAKeyPair rsaKeyPair = generateRSAKeyPair(g.getSumD1(), g.getSumD2());
         storageGateway.store(g.getMember(), g.getUuid(), rsaKeyPair);

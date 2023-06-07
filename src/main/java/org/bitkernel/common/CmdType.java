@@ -30,6 +30,7 @@ public enum CmdType {
     PUT_PRI_KEY_BLOCK("-ppkb2", "", "-ppkb2@groupUuid:userName:block"),
     GET_PUB_KEY_BLOCKS("-gpkb1", "", "-gpkb1@groupUuid"),
     GET_PRI_KEY_BLOCKS("-gpkb2", "", "-gpkb2@groupUuid:userName"),
+    REMOVE("-remove", "", "-remove@groupUuid"),
 
     GET_PUB_KEY("-gpk", "", "-gpk@ "),
     GROUP_NUMBER("-gn", "", "-gn@ ");

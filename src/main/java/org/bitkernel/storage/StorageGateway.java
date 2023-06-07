@@ -48,11 +48,11 @@ public class StorageGateway {
      * Judge the recovered RSA key is correct or not
      */
     public boolean checkRecover(@NotNull List<String> group,
-                                @NotNull String groupTag,
+                                @NotNull String groupUuid,
                                 @NotNull RSAKeyPair rsAKeyPair) {
-        boolean flag = checkRecoverPriKey(group, groupTag, rsAKeyPair.getPrivateKey());
+        boolean flag = checkRecoverPriKey(group, groupUuid, rsAKeyPair.getPrivateKey());
         if (flag) {
-            flag = checkRecoverPubKey(groupTag, rsAKeyPair.getPublicKey());
+            flag = checkRecoverPubKey(groupUuid, rsAKeyPair.getPublicKey());
         }
         return flag;
     }
@@ -103,6 +103,14 @@ public class StorageGateway {
         } else {
             logger.error("The public key recover failed");
             return false;
+        }
+    }
+
+    public void remove(@NotNull String groupUuid) {
+        List<Integer> workingStorageIdxList = getWorkingStorageIdxs();
+        String cmd = String.format("%s@%s@%s", sysName, CmdType.REMOVE.cmd, groupUuid);
+        for (int idx : workingStorageIdxList) {
+            udp.send(Config.getStorageIp(idx), Config.getStoragePort(idx), cmd);
         }
     }
 

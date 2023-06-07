@@ -61,8 +61,16 @@ public class Storage {
             case GET_PRI_KEY_BLOCKS:
                 getPriKeyDataBlocks(pkt, msg);
                 break;
+            case REMOVE:
+                remove(pkt, msg);
+                break;
             default:
         }
+    }
+
+    private void remove(@NotNull DatagramPacket pkt, @NotNull String groupUuid) {
+        priKeyDataBlockMap.remove(groupUuid);
+        pubKeyDataBlockMap.remove(groupUuid);
     }
 
     public void putPriKeyBlock(@NotNull DatagramPacket pkt, @NotNull String msg) {
