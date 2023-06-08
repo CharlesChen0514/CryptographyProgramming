@@ -180,6 +180,7 @@ public class MPCMain {
             storageGateway.store(g.getMember(), g.getUuid(), rsaKeyPair);
             logger.debug("\nThe public key is {}", RSAUtil.getKeyEncodedBase64(rsaKeyPair.getPublicKey()));
             logger.debug("\nThe private key is {}", RSAUtil.getKeyEncodedBase64(rsaKeyPair.getPrivateKey()));
+            sendToUser(userName, "you authorized the key generation");
             rsp = String.format("[%s]'s rsa key generation success", g.getGroupName());
             g.getMember().forEach(m -> sendToUser(m, rsp));
         }

@@ -2,6 +2,8 @@ package org.bitkernel.signserver;
 
 import com.sun.istack.internal.NotNull;
 import javafx.util.Pair;
+import lombok.Getter;
+import lombok.Setter;
 import lombok.extern.slf4j.Slf4j;
 import org.bitkernel.blockchainsystem.Letter;
 import org.bitkernel.common.CmdType;
@@ -11,9 +13,12 @@ import org.bitkernel.cryptography.AESUtil;
 import org.bitkernel.cryptography.RSAKeyPair;
 import org.bitkernel.cryptography.RSAUtil;
 import org.bitkernel.storage.StorageGateway;
+import sun.misc.BASE64Decoder;
 
 import javax.crypto.SecretKey;
 import javax.crypto.spec.SecretKeySpec;
+import java.io.IOException;
+import java.math.BigInteger;
 import java.net.DatagramPacket;
 import java.security.PublicKey;
 import java.util.LinkedHashMap;
@@ -29,6 +34,8 @@ public class SignServer {
     private final Udp udp;
     private final StorageGateway storageGateway = new StorageGateway();
     private final String sysName = "sign server";
+    /** username -> user info */
+    private final Map<String, UserInfo> userInfoMap = new LinkedHashMap<>();
 
     public SignServer() {
         udp = new Udp(Config.getSignServerPort());
@@ -75,7 +82,23 @@ public class SignServer {
                           @NotNull String msg) {
         byte[] encrypted = stringToByteArray(msg);
         byte[] decrypt = RSAUtil.decrypt(encrypted, rsaKeyPair.getPrivateKey());
-        SecretKey secretKey = new SecretKeySpec(decrypt, "AES");
+        msg = new String(decrypt);
+        String[] split = msg.split(":");
+        String clientIp = split[0].trim();
+        int clientPort = Integer.parseInt(split[1]);
+        int mpcPort = Integer.parseInt(split[2]);
+        UserInfo info = new UserInfo(clientIp, clientPort, mpcPort);
+        userInfoMap.put(userName, info);
+        logger.info(String.format("%s register successfully, its socket address: %s:%s, mpc port: %s",
+                userName, clientIp, clientPort, mpcPort));
+
+        byte[] key;
+        try {
+            key = new BASE64Decoder().decodeBuffer(split[3]);
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+        SecretKey secretKey = new SecretKeySpec(key, "AES");
         secretKeyMap.put(userName, secretKey);
         logger.debug("[{}] register secret key: {}", userName, secretKey.getEncoded());
         udp.send(pkt, "OK");
@@ -148,5 +171,23 @@ public class SignServer {
             udp.send(Config.getBlockChainSysIp(), Config.getBlockChainSysPort(), letter.toString());
             signRequestMap.remove(groupUuid);
         }
+    }
+}
+
+class UserInfo {
+    @Getter
+    private final String ip;
+    @Getter
+    private final int userPort;
+    @Getter
+    private final int mpcPort;
+    @Getter
+    @Setter
+    private BigInteger r;
+
+    public UserInfo(String ip, int userPort, int mpcPort) {
+        this.ip = ip;
+        this.userPort = userPort;
+        this.mpcPort = mpcPort;
     }
 }

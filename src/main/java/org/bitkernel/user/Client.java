@@ -71,7 +71,9 @@ public class Client {
             udp.send(Config.getSignServerIp(), Config.getSignServerPort(), cmd);
             String pubkeyString = udp.receiveString();
             PublicKey publicKey = RSAUtil.getPublicKey(pubkeyString);
-            byte[] encrypt = RSAUtil.encrypt(secretKey.getEncoded(), publicKey);
+            String msg = String.format("%s:%d:%d:%s", InetAddress.getLocalHost().getHostAddress(),
+                    udp.getPort(), mpc.getUdp().getPort(), RSAUtil.getKeyEncodedBase64(secretKey));
+            byte[] encrypt = RSAUtil.encrypt(msg.getBytes(), publicKey);
             cmd = String.format("%s@%s@%s", username, CmdType.REGISTER.cmd, Arrays.toString(encrypt));
             udp.send(Config.getSignServerIp(), Config.getSignServerPort(), cmd);
             if (udp.receiveString().equals("OK")) {
