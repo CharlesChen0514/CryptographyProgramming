@@ -5,15 +5,21 @@ import javafx.util.Pair;
 import lombok.Getter;
 import lombok.Setter;
 import lombok.extern.slf4j.Slf4j;
+import org.bitkernel.Util;
 import org.bitkernel.common.Config;
 import org.bitkernel.common.Udp;
 import org.bitkernel.cryptography.RSAKeyPair;
 import org.bitkernel.cryptography.RSAUtil;
 import org.bitkernel.common.CmdType;
+import org.bitkernel.storage.DataBlock;
 import org.bitkernel.storage.StorageGateway;
+import sun.misc.BASE64Encoder;
 
 import java.math.BigInteger;
 import java.net.DatagramPacket;
+import java.security.MessageDigest;
+import java.security.PrivateKey;
+import java.security.PublicKey;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -75,6 +81,9 @@ public class MPCMain {
                 break;
             case RSA_KER_PAIR_RECOVER:
                 rsaKeyPariRecover(name, msg);
+                break;
+            case GET_HASH_KEY:
+                getHashKey(pkt, msg);
                 break;
             default:
         }
@@ -192,7 +201,8 @@ public class MPCMain {
                 sendToUser(userName, rsp);
             } else {
                 RSAKeyPair rsaKeyPair = generateRsaKeyPair(g);
-                storageGateway.store(g.getMember(), g.getUuid(), rsaKeyPair);
+                storePriKey(g.getMember(), g.getUuid(), rsaKeyPair.getPrivateKey());
+                storePubKey(g.getUuid(), rsaKeyPair.getPublicKey());
                 logger.debug("\nThe public key is {}", RSAUtil.getKeyEncodedBase64(rsaKeyPair.getPublicKey()));
                 logger.debug("\nThe private key is {}", RSAUtil.getKeyEncodedBase64(rsaKeyPair.getPrivateKey()));
                 sendToUser(userName, "you authorized the key generation");
@@ -201,6 +211,72 @@ public class MPCMain {
             }
         }
         logger.debug(rsp);
+    }
+
+    private void storePriKey(@NotNull List<String> group,
+                             @NotNull String groupUuid,
+                             @NotNull PrivateKey privateKey) {
+        List<byte[]> subPriKeys = getPriKeySlicing(privateKey, group.size());
+        for (int i = 0; i < subPriKeys.size(); i++) {
+            String userName = group.get(i).trim();
+            List<DataBlock> dataBlocks = DataBlock.generateDataBlocks(i, subPriKeys.get(i));
+            String hashKey = generateHashKey(groupUuid, userName);
+            storageGateway.storePriKeyBlock(hashKey, dataBlocks);
+            logger.debug("\n[{}]'s sub-private key is {}", userName, new String(subPriKeys.get(i)));
+        }
+    }
+
+    /**
+     * Split private key into sub-private keys
+     * @param priKey private key
+     * @param num split number
+     * @return sub-private key list
+     */
+    @NotNull
+    public List<byte[]> getPriKeySlicing(@NotNull PrivateKey priKey,
+                                         @NotNull int num) {
+        String priKeyEncodedBase64 = RSAUtil.getKeyEncodedBase64(priKey);
+        byte[] bytes = priKeyEncodedBase64.getBytes();
+        int subLen = (int) Math.ceil(bytes.length * 1.0 / num);
+        List<byte[]> slices = new ArrayList<>();
+
+        int pos = 0;
+        while (pos < bytes.length) {
+            int remain = bytes.length - pos;
+            byte[] subBytes = new byte[Math.min(subLen, remain)];
+            System.arraycopy(bytes, pos, subBytes, 0, subBytes.length);
+            pos += subBytes.length;
+            slices.add(subBytes);
+        }
+
+        return slices;
+    }
+
+    private void getHashKey(@NotNull DatagramPacket pkt, @NotNull String msg) {
+        String[] split = msg.split(":");
+        String uuid = split[0];
+        String name = split.length == 2 ? split[1] : groupMap.get(uuid).getGroupName();
+        String hashKey = generateHashKey(uuid, name);
+        udp.send(pkt, hashKey);
+    }
+
+    @NotNull
+    private String generateHashKey(@NotNull String groupUuid, @NotNull String username) {
+        logger.debug("uuid: {}, name: {}", groupUuid, username);
+        String base = String.format("%s+%s", groupUuid, username);
+        MessageDigest md = Util.getMessageDigestInstance();
+        byte[] digest = md.digest(base.getBytes());
+        return new BASE64Encoder().encode(digest);
+    }
+
+    private void storePubKey(@NotNull String groupUuid,
+                             @NotNull PublicKey pubKey) {
+        String pubKeyEncodedBase64 = RSAUtil.getKeyEncodedBase64(pubKey);
+        byte[] bytes = pubKeyEncodedBase64.getBytes();
+        List<DataBlock> dataBlocks = DataBlock.generateDataBlocks(0, bytes);
+        String hashKey = generateHashKey(groupUuid, groupMap.get(groupUuid).getGroupName());
+        storageGateway.storePubKeyBlock(hashKey, dataBlocks);
+        logger.debug("Successfully store the public key");
     }
 
     /**
@@ -241,7 +317,8 @@ public class MPCMain {
         Group g = groupMap.get(groupUuid);
 
         String rsp;
-        if (!storageGateway.contains(groupUuid)) {
+        String pubHashKey = generateHashKey(groupUuid, g.getGroupName());
+        if (!storageGateway.contains(pubHashKey)) {
             rsp = "Please generate rsa key pair first";
             sendToUser(userName, rsp);
             return;
@@ -255,10 +332,11 @@ public class MPCMain {
             sendToUser(userName, rsp);
         } else {
             RSAKeyPair rsaKeyPair = generateRsaKeyPair(g);
-            boolean flag = storageGateway.checkRecover(g.getMember(), g.getUuid(), rsaKeyPair);
+            boolean flag = checkRecover(g.getMember(), g.getUuid(), rsaKeyPair);
             if (flag) {
-                storageGateway.remove(g.getUuid());
-                storageGateway.store(g.getMember(), g.getUuid(), rsaKeyPair);
+                removeStorage(g);
+                storePriKey(g.getMember(), g.getUuid(), rsaKeyPair.getPrivateKey());
+                storePubKey(g.getUuid(), rsaKeyPair.getPublicKey());
                 rsp = String.format("[%s]'s rsa key recover success", g.getGroupName());
                 logger.debug(rsp);
                 g.getMember().forEach(m -> sendToUser(m, rsp));
@@ -267,6 +345,74 @@ public class MPCMain {
                 logger.error(rsp);
                 g.getMember().forEach(m -> sendToUser(m, rsp));
             }
+        }
+    }
+
+    private void removeStorage(@NotNull Group g) {
+        String pubHashKey = generateHashKey(g.getUuid(), g.getGroupName());
+        storageGateway.removePubKey(pubHashKey);
+        for (String user : g.getMember()) {
+            String priHashKey = generateHashKey(g.getUuid(), user);
+            storageGateway.removeSubPriKey(priHashKey);
+        }
+    }
+
+    /**
+     * Judge the recovered RSA key is correct or not
+     */
+    public boolean checkRecover(@NotNull List<String> group,
+                                @NotNull String groupUuid,
+                                @NotNull RSAKeyPair rsAKeyPair) {
+        boolean flag = checkRecoverPriKey(group, groupUuid, rsAKeyPair.getPrivateKey());
+        if (flag) {
+            flag = checkRecoverPubKey(groupUuid, rsAKeyPair.getPublicKey());
+        }
+        return flag;
+    }
+
+    private boolean checkRecoverPriKey(@NotNull List<String> group,
+                                       @NotNull String groupUuid,
+                                       @NotNull PrivateKey privateKey) {
+        List<byte[]> subPriKeys = getPriKeySlicing(privateKey, group.size());
+        boolean res = true;
+
+        for (int i = 0; i < group.size(); i++) {
+            String userName = group.get(i).trim();
+            String hashKey = generateHashKey(groupUuid, userName);
+            List<DataBlock> remainBlocks = storageGateway.getSubPriKeyBlocks(hashKey);
+            String sliceStr = new String(DataBlock.combine(remainBlocks));
+
+            List<DataBlock> dataBlocks = DataBlock.generateDataBlocks(i, subPriKeys.get(i));
+            String subKeyStr = new String(DataBlock.combine(dataBlocks));
+            if (subKeyStr.contains(sliceStr)) {
+                logger.debug("The {}'s sub-private key recover successfully", userName);
+            } else {
+                logger.error("The {}'s sub-private key recover failed", userName);
+                res = false;
+            }
+        }
+        return res;
+    }
+
+    private boolean checkRecoverPubKey(@NotNull String groupUuid,
+                                       @NotNull PublicKey pubKey) {
+        // get the remaining data block string
+        String pubHashKey = generateHashKey(groupUuid, groupMap.get(groupUuid).getGroupName());
+        List<DataBlock> remainBlocks = storageGateway.getPubKeyBlocks(pubHashKey);
+        String sliceStr = new String(DataBlock.combine(remainBlocks));
+
+        // get the all data blocks string combination of public key
+        byte[] bytes = RSAUtil.getKeyEncodedBase64(pubKey).getBytes();
+        List<DataBlock> dataBlocks = DataBlock.generateDataBlocks(0, bytes);
+        String pubKeyStr = new String(DataBlock.combine(dataBlocks));
+
+        // judge contains or not
+        if (pubKeyStr.contains(sliceStr)) {
+            logger.debug("The public key recover successfully");
+            return true;
+        } else {
+            logger.error("The public key recover failed");
+            return false;
         }
     }
 

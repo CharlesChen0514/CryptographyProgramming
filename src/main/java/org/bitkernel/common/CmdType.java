@@ -30,10 +30,12 @@ public enum CmdType {
     PUT_PRI_KEY_BLOCK("-ppkb2", "", "-ppkb2@groupUuid:userName:block"),
     GET_PUB_KEY_BLOCKS("-gpkb1", "", "-gpkb1@groupUuid"),
     GET_PRI_KEY_BLOCKS("-gpkb2", "", "-gpkb2@groupUuid:userName"),
-    REMOVE("-remove", "", "-remove@groupUuid"),
+    REMOVE_PUB_KEY("-rpk1", "", "-rpk1@groupUuid"),
+    REMOVE_PRI_KEY("-rpk2", "", "-rpk2@groupUuid"),
 
     GET_PUB_KEY("-gpk", "", "-gpk@ "),
-    GROUP_NUMBER("-gn", "", "-gn@ ");
+    GROUP_NUMBER("-gn", "", "-gn@ "),
+    GET_HASH_KEY("-ghk", "", "-ghk@groupUuid:username, -ghk@groupUuid");
 
     public final String cmd;
     public final String description;

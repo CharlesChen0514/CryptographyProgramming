@@ -5,6 +5,7 @@ import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.Setter;
 import org.apache.commons.lang3.StringUtils;
+import org.bitkernel.Util;
 import org.bitkernel.cryptography.RSAUtil;
 
 import java.security.PublicKey;
@@ -34,16 +35,6 @@ public class Letter {
     }
 
     @NotNull
-    private static byte[] stringToByteArray(@NotNull String str) {
-        String[] strArray = str.replaceAll("[\\[\\]\\s]", "").split(",");
-        byte[] byteArray = new byte[strArray.length];
-        for (int i = 0; i < strArray.length; i++) {
-            byteArray[i] = Byte.parseByte(strArray[i]);
-        }
-        return byteArray;
-    }
-
-    @NotNull
     public static Letter parse(@NotNull String str) {
         String[] split = str.split("@");
         List<String> userList = Arrays.asList(split[0].split(":"));
@@ -52,7 +43,7 @@ public class Letter {
         for (int i = 0; i < userList.size(); i++) {
             messageMap.put(userList.get(i), messageList.get(i));
         }
-        byte[] signature = stringToByteArray(split[2]);
+        byte[] signature = Util.stringToByteArray(split[2]);
         PublicKey publicKey = RSAUtil.getPublicKey(split[3]);
         return new Letter(messageMap, signature, publicKey);
     }

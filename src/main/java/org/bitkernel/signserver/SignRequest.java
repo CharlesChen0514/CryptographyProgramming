@@ -4,11 +4,11 @@ import com.sun.istack.internal.NotNull;
 import javafx.util.Pair;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
+import org.bitkernel.Util;
 import org.bitkernel.blockchainsystem.Letter;
 import org.bitkernel.cryptography.RSAUtil;
 
 import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
 import java.security.PrivateKey;
 import java.security.PublicKey;
 import java.util.*;
@@ -51,23 +51,13 @@ public class SignRequest {
 
     @NotNull
     public Letter getLetter() {
-        MessageDigest md = getMessageDigestInstance();
+        MessageDigest md = Util.getMessageDigestInstance();
         byte[] hash = md.digest(messageMap.toString().getBytes());
 
         PrivateKey privateKey = constructPriKey();
         byte[] signature = RSAUtil.encrypt(hash, privateKey);
 
         return new Letter(messageMap, signature, publicKey);
-    }
-
-    public static MessageDigest getMessageDigestInstance() {
-        MessageDigest md = null;
-        try {
-            md = MessageDigest.getInstance("SHA-256");
-        } catch (NoSuchAlgorithmException e) {
-            logger.error(e.getMessage());
-        }
-        return md;
     }
 
     @NotNull

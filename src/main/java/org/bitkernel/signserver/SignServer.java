@@ -5,6 +5,7 @@ import javafx.util.Pair;
 import lombok.Getter;
 import lombok.Setter;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.lang3.StringUtils;
 import org.bitkernel.Util;
 import org.bitkernel.blockchainsystem.Letter;
 import org.bitkernel.common.CmdType;
@@ -106,6 +107,14 @@ public class SignServer {
         udp.send(pkt, "OK");
     }
 
+    @NotNull
+    private String getHashKey(@NotNull String ...args) {
+        String msg = StringUtils.join(args, ":");
+        String cmd = String.format("%s@%s@%s", sysName, CmdType.GET_HASH_KEY.cmd, msg);
+        udp.send(Config.getMpcMainIp(), Config.getMpcMainPort(), cmd);
+        return udp.receiveString();
+    }
+
     /**
      * 1. check whether the sign request exists or not <br>
      * 2. if not exist, initiate a new sign request,
@@ -128,20 +137,22 @@ public class SignServer {
         String groupUuid = split[0].trim();
         String content = split[1].trim();
 
+        String pubHashKey = getHashKey(groupUuid);
         String rsp;
-        if (!storageGateway.contains(groupUuid)) {
+        if (!storageGateway.contains(pubHashKey)) {
             rsp = "Please generate rsa key pair first";
             sendToUser(userName, rsp);
             return;
         }
 
-        if (storageGateway.blockNum(groupUuid) < 4) {
+        if (storageGateway.blockNum(pubHashKey) < 4) {
             rsp = "Data lost, please recover key";
             sendToUser(userName, rsp);
             return;
         }
 
-        Pair<Integer, byte[]> subPriKey = storageGateway.getSubPriKey(groupUuid, userName);
+        String priHashKey = getHashKey(groupUuid, userName);
+        Pair<Integer, byte[]> subPriKey = storageGateway.getSubPriKey(priHashKey);
         SignRequest signRequest;
         if (signRequestMap.containsKey(groupUuid)) {
             signRequest = signRequestMap.get(groupUuid);
@@ -153,7 +164,7 @@ public class SignServer {
                 logger.debug("[{}] authorized a signature request with message [{}]", userName, content);
             }
         } else {
-            PublicKey pubKey = storageGateway.getPubKey(groupUuid);
+            PublicKey pubKey = storageGateway.getPubKey(pubHashKey);
             udp.send(Config.getMpcMainIp(), Config.getMpcMainPort(),
                     String.format("%s@%s@%s", sysName, CmdType.GROUP_NUMBER.cmd, groupUuid));
             int groupMemberNum = Integer.parseInt(udp.receiveString());

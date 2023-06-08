@@ -167,6 +167,9 @@ public class Client {
     private boolean check(@NotNull String fullCmdLine) {
         // lele@-c@group
         String[] split = fullCmdLine.split("@");
+        if (split.length < 2) {
+            return false;
+        }
         CmdType type = CmdType.cmdToEnumMap.get(split[1].trim());
         if (type == CmdType.EXIT || type == CmdType.GROUP_List ||
                 type == CmdType.HELP) {

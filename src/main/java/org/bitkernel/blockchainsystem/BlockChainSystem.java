@@ -1,12 +1,12 @@
 package org.bitkernel.blockchainsystem;
 
 import lombok.extern.slf4j.Slf4j;
+import org.bitkernel.Util;
 import org.bitkernel.common.Config;
 import org.bitkernel.common.Udp;
 import org.bitkernel.cryptography.RSAUtil;
 
 import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
 
 @Slf4j
 public class BlockChainSystem {
@@ -32,7 +32,7 @@ public class BlockChainSystem {
             String hash1Str = new String(hash1);
             logger.debug("Get hash1 by decrypting the signature with the public key: {}", hash1Str);
 
-            MessageDigest md = getMessageDigestInstance();
+            MessageDigest md = Util.getMessageDigestInstance();
             byte[] hash2 = md.digest(letter.getMessageMap().toString().getBytes());
             String hash2Str = new String(hash2);
             logger.debug("Get hash2 by computing the digital abstract of the message: {}", hash2Str);
@@ -42,15 +42,5 @@ public class BlockChainSystem {
                 logger.error("Letter data has been tampered");
             }
         }
-    }
-
-    public static MessageDigest getMessageDigestInstance() {
-        MessageDigest md = null;
-        try {
-            md = MessageDigest.getInstance("SHA-256");
-        } catch (NoSuchAlgorithmException e) {
-            logger.error(e.getMessage());
-        }
-        return md;
     }
 }
