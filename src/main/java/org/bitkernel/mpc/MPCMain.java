@@ -134,9 +134,17 @@ public class MPCMain {
             logger.debug("Group {} is not exist", groupUuid);
         } else {
             Group g = groupMap.get(groupUuid);
-            g.join(user);
-            msg = String.format("%s:%s", g.getGroupName(), g.getUuid());
-            logger.debug("{} join the {}", user, g.getGroupName());
+            Set<String> groupList = groupMap.values().stream()
+                    .filter(t -> t.contains(user))
+                    .map(Group::getGroupName)
+                    .collect(Collectors.toSet());
+            if (groupList.contains(g.getGroupName())) {
+                msg = groupUuid;
+            } else {
+                g.join(user);
+                msg = String.format("%s:%s", g.getGroupName(), g.getUuid());
+                logger.debug("{} join the {}", user, g.getGroupName());
+            }
         }
         String cmd = String.format("%s@%s@%s", sysName, CmdType.GROUP_ID.cmd, msg);
         udp.send(pkt, cmd);
@@ -167,25 +175,30 @@ public class MPCMain {
     private void generateRsaKeyPair(@NotNull String userName, @NotNull String msg) {
         String[] split = msg.split(":");
         String groupUuid = split[0];
-        BigInteger r = new BigInteger(split[1]);
-        userInfoMap.get(userName).setR(r);
         Group g = groupMap.get(groupUuid);
 
         String rsp;
         if (storageGateway.contains(groupUuid)) {
             rsp = "The rsa key already exists and does not need to be regenerated";
             sendToUser(userName, rsp);
-        } else if (!alreadyToGenerateRsaKeyPair(g)) {
-            rsp = "Waiting for authorization from others";
-            sendToUser(userName, rsp);
         } else {
-            RSAKeyPair rsaKeyPair = generateRsaKeyPair(g);
-            storageGateway.store(g.getMember(), g.getUuid(), rsaKeyPair);
-            logger.debug("\nThe public key is {}", RSAUtil.getKeyEncodedBase64(rsaKeyPair.getPublicKey()));
-            logger.debug("\nThe private key is {}", RSAUtil.getKeyEncodedBase64(rsaKeyPair.getPrivateKey()));
-            sendToUser(userName, "you authorized the key generation");
-            rsp = String.format("[%s]'s rsa key generation success", g.getGroupName());
-            g.getMember().forEach(m -> sendToUser(m, rsp));
+            BigInteger r = new BigInteger(split[1]);
+            userInfoMap.get(userName).setR(r);
+            if (g.getMember().size() < 2) {
+                rsp = "Group member size must be greater than or equal to 2";
+                sendToUser(userName, rsp);
+            } else if (!alreadyToGenerateRsaKeyPair(g)) {
+                rsp = "Waiting for authorization from others";
+                sendToUser(userName, rsp);
+            } else {
+                RSAKeyPair rsaKeyPair = generateRsaKeyPair(g);
+                storageGateway.store(g.getMember(), g.getUuid(), rsaKeyPair);
+                logger.debug("\nThe public key is {}", RSAUtil.getKeyEncodedBase64(rsaKeyPair.getPublicKey()));
+                logger.debug("\nThe private key is {}", RSAUtil.getKeyEncodedBase64(rsaKeyPair.getPrivateKey()));
+                sendToUser(userName, "you authorized the key generation");
+                rsp = String.format("[%s]'s rsa key generation success", g.getGroupName());
+                g.getMember().forEach(m -> sendToUser(m, rsp));
+            }
         }
         logger.debug(rsp);
     }
@@ -225,8 +238,6 @@ public class MPCMain {
     private void rsaKeyPariRecover(@NotNull String userName, @NotNull String msg) {
         String[] split = msg.split(":");
         String groupUuid = split[0];
-        BigInteger r = new BigInteger(split[1]);
-        userInfoMap.get(userName).setR(r);
         Group g = groupMap.get(groupUuid);
 
         String rsp;
@@ -236,6 +247,8 @@ public class MPCMain {
             return;
         }
 
+        BigInteger r = new BigInteger(split[1]);
+        userInfoMap.get(userName).setR(r);
         if (!alreadyToGenerateRsaKeyPair(g)) {
             rsp = "Waiting for authorization from others";
             logger.debug(rsp);

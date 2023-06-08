@@ -145,9 +145,13 @@ public class SignServer {
         SignRequest signRequest;
         if (signRequestMap.containsKey(groupUuid)) {
             signRequest = signRequestMap.get(groupUuid);
-            signRequest.authorized(userName, content, subPriKey);
-            rsp = "you authorized a signature request";
-            logger.debug("[{}] authorized a signature request with message [{}]", userName, content);
+            if (signRequest.getMessageMap().containsKey(userName)) {
+                rsp = "You have unfinished signature requests";
+            } else {
+                signRequest.authorized(userName, content, subPriKey);
+                rsp = "you authorized a signature request";
+                logger.debug("[{}] authorized a signature request with message [{}]", userName, content);
+            }
         } else {
             PublicKey pubKey = storageGateway.getPubKey(groupUuid);
             udp.send(Config.getMpcMainIp(), Config.getMpcMainPort(),
