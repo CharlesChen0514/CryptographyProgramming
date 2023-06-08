@@ -1,5 +1,14 @@
 ﻿# 方案设计
 
+* [方案设计](#方案设计)
+  * [场景一：第一步：得到加密数](#场景一第一步得到加密数)
+  * [场景一：第二步：得到基数 D](#场景一第二步得到基数-d)
+  * [场景一：第三步：生成公钥和私钥](#场景一第三步生成公钥和私钥)
+  * [场景一：第四步：可靠存储](#场景一第四步可靠存储)
+  * [场景二：共同签名，自动验证签名](#场景二共同签名自动验证签名)
+  * [场景三：任意两个存储商倒闭（部分数据在），恢复密钥](#场景三任意两个存储商倒闭部分数据在恢复密钥)
+* [测试](#测试)
+
 ## 场景一：第一步：得到加密数
 
 通过用户输入的 key 进行两次 Enigma 机的加密，获得大小数 d1 和 d2。
@@ -70,109 +79,92 @@
 
 # 测试
 
-## 场景一
-
-测试 jar 包：Scenario1Test
-
-### 第一步：得到加密数
-
-![](figs/getEncryptedNumber.png)
-
-- 首先两个用户会生成自己的 128 位的随机数 R
-- 然后每个用户输入的 key，通过 Enigma 机加密两次获得 d1 和 d2
-
-在该测试场景下，Alice 的 key 为 abcdefgh，Bob 的 key 为 ijklmnop
-
-### 第二步：得到基数 D
-
-![](figs/getBaseDTestImg.png)
-
-首先通过 MPC-Main 随机生成传递路径，这里是 Bob -> Alice，图中显示了在传递过程中 X 值的变化。
-
-最后每个用户上传自己的 R 值，MPC-Main 则得到各个用户的 d1 和 d2 的累加值
-
-### 第三步：生成公钥和私钥
-
-首先展示了 sumD1 和 sumD2 扩展到 1024 位的结果，然后输出了找到 P 和 Q 的值
-
-![](figs/generateRSAkeysTestImg.png)
-
-该场景下生成对应的公钥和私钥如下
+首先启动六个服务，包括 MPCMain、SignServer、BlockChainSystem 和三个存储商
 
 ```java
-MIGfMA0GCSqGSIb3DQEBAQUAA4GNADCBiQKBgQDK9wAAAAAAAYw7AAAAAAACRZgAAAAAAALtSgAA
-AAAAA6NmAAAAAAAEU+8AAAAAAAUPpAAAAAAABbWVAAAAAAGu7yYAAAAAAaBeHQAAAAABlqVQAAAA
-AAGFHPsAAAAAAX4iZQAAAAABd+7uAAAAAAGaJT0AAAAAAYTyAAAAAABKtQIDAQAB
-
-MIIBNgIBADANBgkqhkiG9w0BAQEFAASCASAwggEcAgEAAoGBAMr3AAAAAAABjDsAAAAAAAJFmAAA
-AAAAAu1KAAAAAAADo2YAAAAAAART7wAAAAAABQ+kAAAAAAAFtZUAAAAAAa7vJgAAAAABoF4dAAAA
-AAGWpVAAAAAAAYUc+wAAAAABfiJlAAAAAAF37u4AAAAAAZolPQAAAAABhPIAAAAAAEq1AgEAAoGA
-CEsrjtRxK47kogyP83AMkAsz+NwHI/jcJcIeWeGmHloHtUVOurFFTuf3HjLhzR4zFr6G2Xkmhtm0
-38/OMDHP37l3zgwx884dI0xCEb3uQiJJ8hDt7xIQ/cR/pTJazaVB5p078MQPPAAPP3h0h4t4hTgW
-cAeP+HAXY7lURqu5V0ECAQACAQACAQACAQACAQA=
+java -jar MPCMain.jar
+java -jar SignServer.jar
+java -jar Storage.jar 1
+java -jar Storage.jar 2
+java -jar Storage.jar 3
 ```
 
+启动若干个客户端，本次测试启动两个，名字分别为 jiajia 和 lele
 
-### 第四步：可靠存储
+```java
+java -jar Client.jar
+```
 
-![](figs/reliableStoreTestImg.png)
+![](figs/clientLogin.png)
 
-首先通过 MPC-Main 生成组标识，然后将公私钥和组标识传递给存储商进行存储。图中展示了私钥切片的结果
+创建组 chenchen
 
-## 场景一：Enigma 机的可逆性测试
+```bash
+-c@chenchen
+```
 
-测试 jar 包：Scenario1EnigmaReversibleTest
+MPCMain 会创建对应的组并将信息返回给客户端
 
-![](figs/scenario1ReversibleTestImg.png)
+![](figs/createGroup.png)
 
-Alice 输入的 key 为 hellolll，加密两次分别获得 drijbzvy，abmkmnfj。
+另一个用户通过 uuid 加入组
 
-分别解密后均得到根密钥 hellolll，说明具有可逆性
+```bash
+-j@881fbe48ac354dac838b53c864018e22
+```
 
-## 场景二
+客户端会给出提示是否加入成功，也可以通过 -gl 命令查看所在的组
 
-测试 jar 包：Scenario2Test
+![](figs/groupList.png)
 
-场景二的测试也包含场景一的四个步骤，主要是多了一个签名步骤
+生成 RSA 组密钥对并存储
 
-![](figs/scenario2TestImg.png)
+```bash
+-s1t@chenchen
+```
 
-首先用户会向签名机构注册自己的对称密钥，后面通过对称密钥进行加解密请求消息。
+需要组内所有人授权 MPC-Main 才会执行
 
-这里我们模拟了 bob 不在线，只有授权人数足够以后才会触发签名。
+![](figs/s1t1.png)
 
-签名发送给区块链系统后会自动验证。
+![](figs/s1t2.png)
 
-## 场景二：可靠性测试
+进行组签名，同样是需要组内所有人授权后才会生成信件发送给区块链系统
 
-测试 jar 包：Scenario2ReliabilityTest
+```bash
+-s2t@chenchen:nihao
+-s2t@chenchen:haha
 
-大致流程与 Scenario2Test 一致，只不过这里我们在签名之前随机破坏了一个存储商，测试是否可以正常工作。
+```
 
-![](figs/scenario2ReliabilityTestImg.png)
+区块链系统收到消息以后自动验证信件的信息是否被篡改
 
-图中，编号为 1 的存储商被破坏，可以看到后续在获取密钥块时发生错误，但还是正常完成了签名的操作
+![](figs/blockChainSystemCheck.png)
 
-## 场景二：签名数据篡改测试
+接下来我们破坏存储商 2，测试是否业务是否能正常进行
 
-测试 jar 包：Scenario2DataTamperTest，测试数据被篡改，区块链系统是否可以识别
+可以看到 MPCMain 可以感知到对应的存储商是否在工作，并且不会影响业务的正常进行
 
-![](figs/scenario2TamperTestImg.png)
+![](figs/mpcStorageNotWorking.png)
 
-这里模拟将签名信息 “hello” 篡改为 “nihao”，可以看到两次计算的哈希值不同，区块链系统识别到了数据篡改
+接下来测试恢复密钥，下线存储商 3，此时如果再进行签名请求，会告知用户数据丢失，需要恢复密钥
 
-## 场景三：任意两个存储商倒闭（部分数据在），恢复密钥
+![](figs/dataLost.png)
 
-测试 jar 包：Scenario3Test，先执行一次场景一的流程，后随机破坏两个存储商，通过用户输入 key 进行密钥恢复
+```bash
+-s3t@chenchen
+```
 
-![](figs/scenario3Test1.png)
+我们首先故意输入错误的 key，查看程序是否能感知
 
-图中，编号为 0 和 2 的存储商被破坏，随后提示用户输入 key，这里首先测试输入正确的场景。
+![](figs/recoverFailed.png)
 
-![](figs/scenario3Test2.png)
+再输入正确的 key，查看是否能够恢复
 
-我们将存活存储商的数据块与重新生成的 RSA 密钥对进行匹配，若寻找到匹配片段，说明恢复成功，反之恢复错误，可以看到图中 RSA 密钥正确恢复，并重新存储到存储商中。接下来测试用户输入错误的 key 的情况。
+![](figs/recoverSucess.png)
 
-![](figs/scenario3Test3.png)
+重新生成 rsa 密钥对会平均分配到存活的存储商中，因为此场景知存货了一个存储商，因此会将 6 个数据块都放在一起
 
-可以看到，对于用户输入 key 错误的场景，程序可以识别。
+![](figs/recoverStore.png)
+
+随后，又可以正常进行业务
