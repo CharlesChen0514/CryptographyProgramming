@@ -33,7 +33,7 @@ public class BlockChainSystem {
             logger.debug("Get hash1 by decrypting the signature with the public key: {}", hash1Str);
 
             MessageDigest md = getMessageDigestInstance();
-            byte[] hash2 = md.digest(letter.getMessages().toString().getBytes());
+            byte[] hash2 = md.digest(letter.getMessageMap().toString().getBytes());
             String hash2Str = new String(hash2);
             logger.debug("Get hash2 by computing the digital abstract of the message: {}", hash2Str);
             if (hash1Str.equals(hash2Str)) {

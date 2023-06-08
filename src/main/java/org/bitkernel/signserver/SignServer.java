@@ -5,6 +5,7 @@ import javafx.util.Pair;
 import lombok.Getter;
 import lombok.Setter;
 import lombok.extern.slf4j.Slf4j;
+import org.bitkernel.Util;
 import org.bitkernel.blockchainsystem.Letter;
 import org.bitkernel.common.CmdType;
 import org.bitkernel.common.Config;
@@ -21,6 +22,7 @@ import java.io.IOException;
 import java.math.BigInteger;
 import java.net.DatagramPacket;
 import java.security.PublicKey;
+import java.util.Arrays;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
@@ -80,7 +82,7 @@ public class SignServer {
 
     private void register(@NotNull DatagramPacket pkt, @NotNull String userName,
                           @NotNull String msg) {
-        byte[] encrypted = stringToByteArray(msg);
+        byte[] encrypted = Util.stringToByteArray(msg);
         byte[] decrypt = RSAUtil.decrypt(encrypted, rsaKeyPair.getPrivateKey());
         msg = new String(decrypt);
         String[] split = msg.split(":");
@@ -104,16 +106,6 @@ public class SignServer {
         udp.send(pkt, "OK");
     }
 
-    @NotNull
-    private byte[] stringToByteArray(@NotNull String str) {
-        String[] strArray = str.replaceAll("[\\[\\]\\s]", "").split(",");
-        byte[] byteArray = new byte[strArray.length];
-        for (int i = 0; i < strArray.length; i++) {
-            byteArray[i] = Byte.parseByte(strArray[i]);
-        }
-        return byteArray;
-    }
-
     /**
      * 1. check whether the sign request exists or not <br>
      * 2. if not exist, initiate a new sign request,
@@ -123,7 +115,7 @@ public class SignServer {
      */
     private void signRequest(@NotNull DatagramPacket pkt, @NotNull String userName,
                              @NotNull String msg) {
-        byte[] encrypted = stringToByteArray(msg);
+        byte[] encrypted = Util.stringToByteArray(msg);
         logger.debug("Sign server accept a cipher text: {}", encrypted);
         if (!secretKeyMap.containsKey(userName)) {
             logger.error("Secret key not found, please register first");
@@ -139,8 +131,13 @@ public class SignServer {
         String rsp;
         if (!storageGateway.contains(groupUuid)) {
             rsp = "Please generate rsa key pair first";
-            String cmd = String.format("%s@%s@%s", sysName, CmdType.RESPONSE.cmd, rsp);
-            udp.send(pkt, cmd);
+            sendToUser(userName, rsp);
+            return;
+        }
+
+        if (storageGateway.blockNum(groupUuid) < 4) {
+            rsp = "Data lost, please recover key";
+            sendToUser(userName, rsp);
             return;
         }
 
@@ -148,7 +145,7 @@ public class SignServer {
         SignRequest signRequest;
         if (signRequestMap.containsKey(groupUuid)) {
             signRequest = signRequestMap.get(groupUuid);
-            signRequest.addSubPriKey(userName, subPriKey);
+            signRequest.authorized(userName, content, subPriKey);
             rsp = "you authorized a signature request";
             logger.debug("[{}] authorized a signature request with message [{}]", userName, content);
         } else {
@@ -162,15 +159,26 @@ public class SignServer {
             logger.debug("[{}] initiates a signature request with message [{}]", userName, content);
             rsp = "you initiates a signature request, waiting for authorization from others";
         }
-        String cmd = String.format("%s@%s@%s", sysName, CmdType.RESPONSE.cmd, rsp);
-        udp.send(pkt, cmd);
+        sendToUser(userName, rsp);
 
         if (signRequest.isFullyAuthorized()) {
             logger.debug("All users has authorized the sign request");
             Letter letter = signRequest.getLetter();
             udp.send(Config.getBlockChainSysIp(), Config.getBlockChainSysPort(), letter.toString());
             signRequestMap.remove(groupUuid);
+            for (Map.Entry<String, String> entry : signRequest.getMessageMap().entrySet()) {
+                rsp = String.format("Your signature request in [%s] with [%s] sent to the blockchain system", groupUuid, entry.getValue());
+                sendToUser(entry.getKey(), rsp);
+            }
         }
+    }
+
+    private void sendToUser(@NotNull String user, @NotNull String msg) {
+        SecretKey secretKey = secretKeyMap.get(user);
+        byte[] encrypt = AESUtil.encrypt(msg.getBytes(), secretKey);
+        String cmd = String.format("%s@%s@%s", sysName, CmdType.RESPONSE.cmd, Arrays.toString(encrypt));
+        UserInfo userInfo = userInfoMap.get(user);
+        udp.send(userInfo.getIp(), userInfo.getUserPort(), cmd);
     }
 }
 

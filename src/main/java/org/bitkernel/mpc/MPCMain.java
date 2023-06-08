@@ -172,7 +172,10 @@ public class MPCMain {
         Group g = groupMap.get(groupUuid);
 
         String rsp;
-        if (!alreadyToGenerateRsaKeyPair(g)) {
+        if (storageGateway.contains(groupUuid)) {
+            rsp = "The rsa key already exists and does not need to be regenerated";
+            sendToUser(userName, rsp);
+        } else if (!alreadyToGenerateRsaKeyPair(g)) {
             rsp = "Waiting for authorization from others";
             sendToUser(userName, rsp);
         } else {
