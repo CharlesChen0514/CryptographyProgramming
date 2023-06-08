@@ -4,6 +4,7 @@ import com.sun.istack.internal.NotNull;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 
+import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.util.Properties;
@@ -48,12 +49,22 @@ public class Config {
     public static Properties readProperty(@NotNull String fileName) {
         Properties prop = new Properties();
         try {
-            FileInputStream input = new FileInputStream("src/main/resources/" + fileName);
+            FileInputStream input;
+            if (exist(fileName)) {
+                input = new FileInputStream(fileName);
+            } else {
+                input = new FileInputStream("src/main/resources/" + fileName);
+            }
             prop.load(input);
         } catch (IOException ex) {
             ex.printStackTrace();
         }
         return prop;
+    }
+
+    public static boolean exist(@NotNull String filePath) {
+        File file = new File(filePath);
+        return file.exists();
     }
 
     public static void init() {

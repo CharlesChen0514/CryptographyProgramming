@@ -17,11 +17,10 @@ import java.util.*;
 public class SignRequest {
     private final String initiator;
     private final String groupUuid;
-    private final List<String> messages = new ArrayList<>();
+    @Getter
+    private final Map<String, String> messageMap = new LinkedHashMap<>();
     private final int groupMemberNum;
     private final List<Pair<Integer, byte[]>> subPriKeyList = new ArrayList<>();
-    @Getter
-    private final Set<String> authorizedUserList = new HashSet<>();
     private final PublicKey publicKey;
 
     public SignRequest(@NotNull String userName, @NotNull String groupUuid,
@@ -30,10 +29,9 @@ public class SignRequest {
                        @NotNull PublicKey publicKey) {
         this.initiator = userName;
         this.groupUuid = groupUuid;
-        messages.add(msg);
+        messageMap.put(userName, msg);
         this.groupMemberNum = groupMemberNum;
         subPriKeyList.add(subPriKey);
-        authorizedUserList.add(userName);
         this.publicKey = publicKey;
     }
 
@@ -41,25 +39,25 @@ public class SignRequest {
         return subPriKeyList.size() == groupMemberNum;
     }
 
-    public void addSubPriKey(@NotNull String userName,
-                             @NotNull Pair<Integer, byte[]> subPriKey) {
-        if (authorizedUserList.contains(userName)) {
+    public void authorized(@NotNull String userName, @NotNull String content,
+                           @NotNull Pair<Integer, byte[]> subPriKey) {
+        if (messageMap.containsKey(userName)) {
             logger.error("User {} has authorized", userName);
             return;
         }
-        authorizedUserList.add(userName);
+        messageMap.put(userName, content);
         subPriKeyList.add(subPriKey);
     }
 
     @NotNull
     public Letter getLetter() {
         MessageDigest md = getMessageDigestInstance();
-        byte[] hash = md.digest(messages.toString().getBytes());
+        byte[] hash = md.digest(messageMap.toString().getBytes());
 
         PrivateKey privateKey = constructPriKey();
         byte[] signature = RSAUtil.encrypt(hash, privateKey);
 
-        return new Letter(messages, signature, publicKey);
+        return new Letter(messageMap, signature, publicKey);
     }
 
     public static MessageDigest getMessageDigestInstance() {

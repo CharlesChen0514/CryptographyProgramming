@@ -3,6 +3,7 @@ package org.bitkernel.storage;
 import com.sun.istack.internal.NotNull;
 import lombok.NoArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.bitkernel.Util;
 import org.bitkernel.common.CmdType;
 import org.bitkernel.common.Config;
 import org.bitkernel.common.Udp;
@@ -77,22 +78,12 @@ public class Storage {
         String[] split = msg.split(":");
         String groupUuid = split[0];
         String username = split[1];
-        byte[] bytes = stringToByteArray(split[2]);
+        byte[] bytes = Util.stringToByteArray(split[2]);
         DataBlock block = new DataBlock(bytes);
         putPriKeyBlock(groupUuid, username, block);
         logger.debug("Store the {}th pri key block, length: {}",
                 block.getBlockId(), block.getBytes().length);
         udp.send(pkt, "TRUE");
-    }
-
-    @NotNull
-    private byte[] stringToByteArray(@NotNull String str) {
-        String[] strArray = str.replaceAll("[\\[\\]\\s]", "").split(",");
-        byte[] byteArray = new byte[strArray.length];
-        for (int i = 0; i < strArray.length; i++) {
-            byteArray[i] = Byte.parseByte(strArray[i]);
-        }
-        return byteArray;
     }
 
     public void putPriKeyBlock(@NotNull String groupUuid,
@@ -129,7 +120,7 @@ public class Storage {
     public void putPubKeyBlock(@NotNull DatagramPacket pkt, @NotNull String msg) {
         String[] split = msg.split(":");
         String groupUuid = split[0];
-        byte[] bytes = stringToByteArray(split[1]);
+        byte[] bytes = Util.stringToByteArray(split[1]);
         DataBlock block = new DataBlock(bytes);
         putPubKeyBlock(groupUuid, block);
         logger.debug("Store the {}th pub key block, length: {}",

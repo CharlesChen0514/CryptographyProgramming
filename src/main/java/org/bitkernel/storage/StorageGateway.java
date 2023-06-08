@@ -4,6 +4,7 @@ import com.sun.istack.internal.NotNull;
 import javafx.util.Pair;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
+import org.bitkernel.Util;
 import org.bitkernel.common.CmdType;
 import org.bitkernel.common.Config;
 import org.bitkernel.common.Udp;
@@ -38,7 +39,7 @@ public class StorageGateway {
     public StorageGateway() {
         udp = new Udp();
         try {
-            udp.getSocket().setSoTimeout(100);
+            udp.getSocket().setSoTimeout(50);
         } catch (SocketException e) {
             throw new RuntimeException(e);
         }
@@ -319,6 +320,16 @@ public class StorageGateway {
         return slices;
     }
 
+    public int blockNum(@NotNull String groupUuid) {
+        int c = 0;
+        List<Integer> workingStorageIdList = getWorkingStorageIdxs();
+        for (int idx : workingStorageIdList) {
+            List<DataBlock> blocks = getPubKeyBlocks(idx, groupUuid);
+            c += blocks.size();
+        }
+        return c;
+    }
+
     @NotNull
     public PublicKey getPubKey(@NotNull String groupUuid) {
         DataBlock[] dataBlocks = new DataBlock[TOTAL_BLOCK_NUM];
@@ -372,16 +383,6 @@ public class StorageGateway {
     }
 
     @NotNull
-    private static byte[] stringToByteArray(@NotNull String str) {
-        String[] strArray = str.replaceAll("[\\[\\]\\s]", "").split(",");
-        byte[] byteArray = new byte[strArray.length];
-        for (int i = 0; i < strArray.length; i++) {
-            byteArray[i] = Byte.parseByte(strArray[i]);
-        }
-        return byteArray;
-    }
-
-    @NotNull
     private static List<DataBlock> convertToDataBlocks(@NotNull String rsp) {
         if (rsp.equals("")) {
             return new ArrayList<>();
@@ -389,7 +390,7 @@ public class StorageGateway {
         String[] split = rsp.split(":");
         List<DataBlock> dataBlocks = new ArrayList<>();
         for (String blockStr : split) {
-            byte[] bytes = stringToByteArray(blockStr);
+            byte[] bytes = Util.stringToByteArray(blockStr);
             DataBlock block = new DataBlock(bytes);
             dataBlocks.add(block);
         }

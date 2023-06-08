@@ -3,6 +3,7 @@ package org.bitkernel.user;
 import com.sun.istack.internal.NotNull;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
+import org.bitkernel.Util;
 import org.bitkernel.common.CmdType;
 import org.bitkernel.common.Config;
 import org.bitkernel.cryptography.AESUtil;
@@ -71,7 +72,9 @@ public class Client {
             udp.send(Config.getSignServerIp(), Config.getSignServerPort(), cmd);
             String pubkeyString = udp.receiveString();
             PublicKey publicKey = RSAUtil.getPublicKey(pubkeyString);
-            byte[] encrypt = RSAUtil.encrypt(secretKey.getEncoded(), publicKey);
+            String msg = String.format("%s:%d:%d:%s", InetAddress.getLocalHost().getHostAddress(),
+                    udp.getPort(), mpc.getUdp().getPort(), RSAUtil.getKeyEncodedBase64(secretKey));
+            byte[] encrypt = RSAUtil.encrypt(msg.getBytes(), publicKey);
             cmd = String.format("%s@%s@%s", username, CmdType.REGISTER.cmd, Arrays.toString(encrypt));
             udp.send(Config.getSignServerIp(), Config.getSignServerPort(), cmd);
             if (udp.receiveString().equals("OK")) {
@@ -96,7 +99,7 @@ public class Client {
                 CmdType type = CmdType.cmdToEnumMap.get(split[1].trim());
                 switch (type) {
                     case RESPONSE:
-                        System.out.println(split[2]);
+                        display(split[0], split[2]);
                         break;
                     case GROUP_ID:
                     case JOIN_GROUP:
@@ -111,6 +114,16 @@ public class Client {
         Thread t2 = new Thread(mpc);
         t2.start();
         logger.info("start mpc instance successfully, its socket port is: {}", mpc.getUdp().getPort());
+    }
+
+    private void display(@NotNull String source, @NotNull String msg) {
+        if (source.equals("sign server")) {
+            byte[] bytes = Util.stringToByteArray(msg);
+            byte[] decrypt = AESUtil.decrypt(bytes, secretKey);
+            System.out.println(new String(decrypt));
+        } else {
+            System.out.println(msg);
+        }
     }
 
     /**
