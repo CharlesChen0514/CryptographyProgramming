@@ -60,6 +60,10 @@
 - 键值哈希计算逻辑由 MPCMain 掌控
 - 公钥和私钥碎片都通过 Reed Solomon 进行存储，均包含 4 个数据块和 2 个校验块
 
+<div>
+<img src="figs/storage.jpg" width="65%" alt=""/>
+</div>
+
 磁盘利用率：4/(4+2)=2/3
 
 ![](figs/diskUseRate.png)
