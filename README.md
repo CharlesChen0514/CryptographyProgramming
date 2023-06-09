@@ -50,8 +50,17 @@
 - 根据用户数量将私钥划分成若干个私钥碎片
 - 每个私钥碎片通过 [Reed Solomon](https://github.com/RobinLiew/JavaReedSolomon) 纠删码进行冗余存储，分为 4 个数据块和 2 个校验块
 - 将数据块和校验块平均存储到三个存储商当中，能够保证一个存储商倒闭不影响业务
+  
+公钥存储过程：
+<div>
+<img src="figs\pubkeyStoreProcess.jpg" width="55%" alt=""/>
+</div>
 
-![](figs/priKeyStore.png)
+私钥存储过程：
+<div>
+<img src="figs\priKeyStoreProcess.jpg" width="55%" alt=""/>
+</div>
+
 
 存储商存储形式：
 
@@ -61,7 +70,7 @@
 - 公钥和私钥碎片都通过 Reed Solomon 进行存储，均包含 4 个数据块和 2 个校验块
 
 <div>
-<img src="figs/storage.jpg" width="65%" alt=""/>
+<img src="figs/storage.jpg" width="55%" alt=""/>
 </div>
 
 磁盘利用率：4/(4+2)=2/3
