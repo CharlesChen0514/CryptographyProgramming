@@ -252,6 +252,10 @@ public class MPCMain {
         return slices;
     }
 
+    /**
+     * If the format of msg is groupName, it means the public key hash is obtained. <br>
+     * If the format of msg is groupName:userName, it means the private key hash is obtained. <br>
+     */
     private void getHashKey(@NotNull DatagramPacket pkt, @NotNull String msg) {
         String[] split = msg.split(":");
         String uuid = split[0];
@@ -261,9 +265,9 @@ public class MPCMain {
     }
 
     @NotNull
-    private String generateHashKey(@NotNull String groupUuid, @NotNull String username) {
-        logger.debug("uuid: {}, name: {}", groupUuid, username);
-        String base = String.format("%s+%s", groupUuid, username);
+    private String generateHashKey(@NotNull String groupUuid, @NotNull String name) {
+        logger.debug("uuid: {}, name: {}", groupUuid, name);
+        String base = String.format("%s+%s", groupUuid, name);
         MessageDigest md = Util.getMessageDigestInstance();
         byte[] digest = md.digest(base.getBytes());
         return new BASE64Encoder().encode(digest);
@@ -348,6 +352,9 @@ public class MPCMain {
         }
     }
 
+    /**
+     * Remove the storage of the corresponding group in the storage provider.
+     */
     private void removeStorage(@NotNull Group g) {
         String pubHashKey = generateHashKey(g.getUuid(), g.getGroupName());
         storageGateway.removePubKey(pubHashKey);
@@ -417,8 +424,7 @@ public class MPCMain {
     }
 
     private void getGroupNumber(@NotNull DatagramPacket pkt, @NotNull String groupUuid) {
-        Group group = groupMap.values().stream().
-                filter(g -> g.getUuid().equals(groupUuid)).findFirst().get();
+        Group group = groupMap.get(groupUuid);
         udp.send(pkt, String.valueOf(group.getMember().size()));
     }
 

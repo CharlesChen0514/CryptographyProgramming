@@ -2,7 +2,6 @@ package org.bitkernel.storage;
 
 import com.sun.istack.internal.NotNull;
 import javafx.util.Pair;
-import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import org.bitkernel.Util;
 import org.bitkernel.common.CmdType;
@@ -200,6 +199,10 @@ public class StorageGateway {
         return convertToDataBlocks(rsp);
     }
 
+    /**
+     * @param rsp a string of data block list, the format is [block1]:[block2]...
+     * @return a list of data block
+     */
     @NotNull
     private static List<DataBlock> convertToDataBlocks(@NotNull String rsp) {
         if (rsp.equals("")) {

@@ -52,6 +52,11 @@ public class DataBlock {
         return validBytes;
     }
 
+    /**
+     * @param bytes origin data
+     * @param num number of divisions
+     * @return a list of data block
+     */
     @NotNull
     public static List<DataBlock> convertToBlockList(@NotNull byte[] bytes, int num) {
         int blockSize = bytes.length / num;
@@ -98,7 +103,7 @@ public class DataBlock {
      * Slice data into a list of data block
      */
     @NotNull
-    private static List<DataBlock> slice(int id, @NotNull byte[] bytes, int num) {
+    private static List<DataBlock> slice(int keyId, @NotNull byte[] bytes, int num) {
         // standardized data so that it can be divided by {num}
         int addByteNum = bytes.length % num == 0 ? 0 : num - bytes.length % num;
         byte[] byteFormatted = new byte[addByteNum + bytes.length];
@@ -114,7 +119,7 @@ public class DataBlock {
             int valByteNum = Math.min(subBlockSize, remainByte);
             byte[] block = new byte[subBlockSize + DataBlock.FLAG_BYTE_LEN];
             // The first six bytes are fixed flag
-            block[0] = (byte) id;
+            block[0] = (byte) keyId;
             block[1] = (byte) blockId;
             block[2] = (byte) (valByteNum >> 8);
             block[3] = (byte) valByteNum;
