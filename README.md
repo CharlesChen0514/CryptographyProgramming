@@ -35,7 +35,9 @@
 
 将 128 位的 D1 和 D2 等比例扩充到 1024 位
 
-![](figs/padding.png)
+<div>
+<img src="figs\padding.png" width="50%" alt=""/>
+</div>
 
 通过 Miller-Rabin 素性测试找到素数 P 和 Q，生成 RSA 公私钥
 
