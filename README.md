@@ -36,7 +36,7 @@
 将 128 位的 D1 和 D2 等比例扩充到 1024 位
 
 <div>
-<img src="figs\padding.png" width="45%" alt=""/>
+<img src="figs/padding.png" width="55%" alt=""/>
 </div>
 
 通过 Miller-Rabin 素性测试找到素数 P 和 Q，生成 RSA 公私钥
@@ -53,12 +53,12 @@
   
 公钥存储过程：
 <div>
-<img src="figs\pubkeyStoreProcess.jpg" width="55%" alt=""/>
+<img src="figs/pubkeyStoreProcess.jpg" width="55%" alt=""/>
 </div>
 
 私钥存储过程：
 <div>
-<img src="figs\priKeyStoreProcess.jpg" width="55%" alt=""/>
+<img src="figs/priKeyStoreProcess.jpg" width="55%" alt=""/>
 </div>
 
 
@@ -70,7 +70,7 @@
 - 公钥和私钥碎片都通过 Reed Solomon 进行存储，均包含 4 个数据块和 2 个校验块
 
 <div>
-<img src="figs/storage.jpg" width="55%" alt=""/>
+<img src="figs/storage.jpg" width="50%" alt=""/>
 </div>
 
 磁盘利用率：4/(4+2)=2/3
